@@ -14,7 +14,7 @@ export async function getMembers(): Promise<SafeMember[]> {
     .select("id, display_name, team_name, is_commissioner, pin_hash, pin_created_at")
     .order("created_at", { ascending: true });
 
-  if (error) throw new Error("Failed to load members");
+  if (error) throw new Error(`Failed to load members: ${error.message}`);
   return (data ?? []).map(toSafeMember);
 }
 
