@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentMember } from "@/lib/auth";
-import { getAllProposals, getAllMembers } from "@/app/actions/commissioner-actions";
+import { getAllProposals, getAllMembers, getVoteTracker } from "@/app/actions/commissioner-actions";
 import AppHeader from "@/app/components/app-header";
 import Link from "next/link";
 import CommissionerContent from "./commissioner-content";
@@ -26,14 +26,22 @@ export default async function CommissionerPage() {
     );
   }
 
-  const [proposals, members] = await Promise.all([getAllProposals(), getAllMembers()]);
+  const [proposals, members, tracker] = await Promise.all([
+    getAllProposals(),
+    getAllMembers(),
+    getVoteTracker(),
+  ]);
 
   return (
     <>
       <AppHeader memberName={member.display_name} isCommissioner={true} />
       <div className="container">
         <h1 className="page-title">Commissioner Panel</h1>
-        <CommissionerContent initialProposals={proposals} initialMembers={members} />
+        <CommissionerContent
+          initialProposals={proposals}
+          initialMembers={members}
+          initialTracker={tracker}
+        />
       </div>
     </>
   );

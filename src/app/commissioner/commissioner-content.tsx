@@ -38,22 +38,34 @@ interface VotingRecord {
   notVoted: string[];
 }
 
-type Tab = "proposals" | "members";
+interface TrackerProposal {
+  id: string;
+  title: string;
+  votedCount: number;
+  totalMembers: number;
+  voted: { name: string; votedAt: string }[];
+  notVoted: string[];
+}
+
+type Tab = "tracker" | "proposals" | "members";
 
 export default function CommissionerContent({
   initialProposals,
   initialMembers,
+  initialTracker,
 }: {
   initialProposals: Proposal[];
   initialMembers: MemberInfo[];
+  initialTracker: TrackerProposal[];
 }) {
   const router = useRouter();
-  const [tab, setTab] = useState<Tab>("proposals");
+  const [tab, setTab] = useState<Tab>("tracker");
   const [msg, setMsg] = useState("");
   const [error, setError] = useState("");
 
   const proposals = initialProposals;
   const members = initialMembers;
+  const tracker = initialTracker;
 
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -156,6 +168,9 @@ export default function CommissionerContent({
   return (
     <>
       <div className="tabs">
+        <button className={`tab ${tab === "tracker" ? "active" : ""}`} onClick={() => setTab("tracker")}>
+          Vote Tracker
+        </button>
         <button className={`tab ${tab === "proposals" ? "active" : ""}`} onClick={() => setTab("proposals")}>
           Proposals
         </button>
@@ -166,6 +181,82 @@ export default function CommissionerContent({
 
       {msg && <p style={{ color: "var(--color-green)", fontSize: 14, marginBottom: 12 }}>{msg}</p>}
       {error && <p className="error mb-8">{error}</p>}
+
+      {tab === "tracker" && (
+        <>
+          {tracker.length === 0 ? (
+            <div className="card text-center">
+              <p className="text-muted">No open proposals. Open a proposal to start tracking votes.</p>
+            </div>
+          ) : (
+            tracker.map((t) => (
+              <div key={t.id} className="card">
+                <div className="flex items-center justify-between mb-8">
+                  <h3 style={{ fontSize: 16, fontWeight: 600 }}>{t.title}</h3>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: "var(--color-navy)" }}>
+                    {t.votedCount} / {t.totalMembers} voted
+                  </span>
+                </div>
+
+                <div style={{
+                  height: 6,
+                  background: "var(--color-border)",
+                  borderRadius: 3,
+                  overflow: "hidden",
+                  marginBottom: 16,
+                }}>
+                  <div style={{
+                    height: "100%",
+                    width: `${(t.votedCount / t.totalMembers) * 100}%`,
+                    background: t.votedCount === t.totalMembers ? "var(--color-green)" : "var(--color-gold)",
+                    borderRadius: 3,
+                    transition: "width 0.3s",
+                  }} />
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "var(--color-green)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
+                      Voted ({t.voted.length})
+                    </div>
+                    {t.voted.length === 0 ? (
+                      <p className="text-muted" style={{ fontSize: 13 }}>No votes yet</p>
+                    ) : (
+                      <ul className="voter-list">
+                        {t.voted.map((v) => (
+                          <li key={v.name} style={{ fontSize: 13, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <span>{v.name}</span>
+                            <span className="text-muted" style={{ fontSize: 11 }}>
+                              {new Date(v.votedAt).toLocaleDateString()}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "var(--color-red)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>
+                      Not Voted ({t.notVoted.length})
+                    </div>
+                    {t.notVoted.length === 0 ? (
+                      <p className="text-muted" style={{ fontSize: 13 }}>Everyone has voted!</p>
+                    ) : (
+                      <ul className="voter-list">
+                        {t.notVoted.map((name) => (
+                          <li key={name} style={{ fontSize: 13, color: "var(--color-red)" }}>{name}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+          <p className="text-muted mt-16 text-center" style={{ fontSize: 12 }}>
+            Only participation is shown — individual votes are not revealed here.
+          </p>
+        </>
+      )}
 
       {tab === "proposals" && (
         <>

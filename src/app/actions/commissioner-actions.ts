@@ -226,6 +226,55 @@ export async function getAllMembers() {
   return data ?? [];
 }
 
+export async function getVoteTracker() {
+  await requireCommissioner();
+  const sb = getServiceClient();
+
+  const { data: openProposals } = await sb
+    .from("proposals")
+    .select("id, title, opened_at")
+    .eq("status", "open")
+    .order("opened_at", { ascending: false });
+
+  if (!openProposals || openProposals.length === 0) return [];
+
+  const { data: allMembers } = await sb
+    .from("members")
+    .select("id, display_name")
+    .order("created_at", { ascending: true });
+
+  const proposalIds = openProposals.map((p) => p.id);
+  const { data: votes } = await sb
+    .from("votes")
+    .select("proposal_id, member_id, created_at")
+    .in("proposal_id", proposalIds);
+
+  return openProposals.map((p) => {
+    const proposalVotes = (votes ?? []).filter((v) => v.proposal_id === p.id);
+    const votedMemberIds = new Set(proposalVotes.map((v) => v.member_id));
+
+    const voted = (allMembers ?? [])
+      .filter((m) => votedMemberIds.has(m.id))
+      .map((m) => {
+        const vote = proposalVotes.find((v) => v.member_id === m.id);
+        return { name: m.display_name, votedAt: vote?.created_at ?? "" };
+      });
+
+    const notVoted = (allMembers ?? [])
+      .filter((m) => !votedMemberIds.has(m.id))
+      .map((m) => m.display_name);
+
+    return {
+      id: p.id,
+      title: p.title,
+      votedCount: voted.length,
+      totalMembers: (allMembers ?? []).length,
+      voted,
+      notVoted,
+    };
+  });
+}
+
 export async function getProposalVotingRecord(proposalId: string) {
   await requireCommissioner();
   const sb = getServiceClient();
