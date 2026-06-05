@@ -2,17 +2,17 @@
 -- Marcus is the first member and commissioner
 INSERT INTO members (display_name, team_name, is_commissioner) VALUES
   ('Marcus', NULL, true),
-  ('Member 2', NULL, false),
-  ('Member 3', NULL, false),
-  ('Member 4', NULL, false),
-  ('Member 5', NULL, false),
-  ('Member 6', NULL, false),
-  ('Member 7', NULL, false),
-  ('Member 8', NULL, false),
-  ('Member 9', NULL, false),
-  ('Member 10', NULL, false),
-  ('Member 11', NULL, false),
-  ('Member 12', NULL, false);
+  ('Mahs', NULL, false),
+  ('Bag', NULL, false),
+  ('Mang', NULL, false),
+  ('Frazz', NULL, false),
+  ('Dicky', NULL, false),
+  ('Woody', NULL, false),
+  ('Falvey', NULL, false),
+  ('Tony', NULL, false),
+  ('Jord', NULL, false),
+  ('Hugh', NULL, false),
+  ('Haz', NULL, false);
 
 -- Seed league settings
 INSERT INTO league_settings (league_name, short_name, logo_url) VALUES
