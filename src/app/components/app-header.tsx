@@ -46,7 +46,7 @@ export default function AppHeader({ memberName, isCommissioner }: AppHeaderProps
           href="/dashboard"
           className={`app-header-link ${isActive("/dashboard") ? "active" : ""}`}
         >
-          Open Issues
+          Voting
         </Link>
         <Link
           href="/results"
