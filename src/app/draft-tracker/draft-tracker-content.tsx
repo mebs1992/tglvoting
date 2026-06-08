@@ -148,8 +148,8 @@ function NationStatsTable({
           <thead>
             <tr>
               <th className="standings-th"></th>
-              <th className="standings-th standings-th-left">Nation</th>
               <th className="standings-th standings-th-left">GM</th>
+              <th className="standings-th standings-th-left">Nation</th>
               <th className="standings-th">GP</th>
               <th className="standings-th">W</th>
               <th className="standings-th">L</th>
@@ -331,10 +331,10 @@ function NationRow({
         {flagEmoji(entry.nation_code)}
       </td>
       <td className="standings-td standings-td-left">
-        <span className="standings-nation">{entry.nation_name}</span>
+        <span className="standings-gm">{entry.display_name}</span>
       </td>
       <td className="standings-td standings-td-left">
-        <span className="standings-gm">{entry.display_name}</span>
+        <span className="standings-nation">{entry.nation_name}</span>
       </td>
       <td className="standings-td standings-td-num">{gp}</td>
       <td className="standings-td standings-td-num">{entry.group_wins}</td>
