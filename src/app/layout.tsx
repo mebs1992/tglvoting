@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "TGL Rules Voting",
-  description: "The Greatest League — Rules Voting Platform",
+  title: "TGL — The Greatest League",
+  description: "The Greatest League — League Headquarters",
 };
 
 export default function RootLayout({

@@ -24,7 +24,7 @@ export default function AppHeader({ memberName, isCommissioner }: AppHeaderProps
   return (
     <header className="app-header">
       <div className="app-header-top">
-        <Link href="/dashboard" className="app-header-brand">
+        <Link href="/home" className="app-header-brand">
           <Image
             src="/images/tgl_logo.png"
             alt="TGL"
@@ -42,6 +42,12 @@ export default function AppHeader({ memberName, isCommissioner }: AppHeaderProps
         </div>
       </div>
       <nav className="app-header-nav">
+        <Link
+          href="/home"
+          className={`app-header-link ${isActive("/home") ? "active" : ""}`}
+        >
+          Home
+        </Link>
         <Link
           href="/dashboard"
           className={`app-header-link ${isActive("/dashboard") ? "active" : ""}`}

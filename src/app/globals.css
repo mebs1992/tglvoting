@@ -525,3 +525,250 @@ textarea.input {
   color: var(--color-navy);
   border-bottom-color: var(--color-gold);
 }
+
+/* ── Home / Landing Page ── */
+
+.home-page {
+  padding-bottom: 40px;
+}
+
+.home-hero {
+  text-align: center;
+  padding: 32px 0 24px;
+}
+
+.home-hero-title {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--color-navy);
+  letter-spacing: -0.5px;
+}
+
+.home-hero-subtitle {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  font-weight: 600;
+}
+
+.home-section {
+  margin-top: 28px;
+}
+
+.home-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 28px;
+}
+
+@media (max-width: 600px) {
+  .home-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.home-info-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.section-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.section-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.edit-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.edit-icon-btn:hover {
+  background: rgba(26, 39, 68, 0.08);
+  color: var(--color-navy);
+}
+
+.visibility-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.visibility-toggle:hover {
+  background: rgba(26, 39, 68, 0.08);
+  color: var(--color-navy);
+}
+
+.section-hidden {
+  opacity: 0.5;
+  border: 1.5px dashed var(--color-border);
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.info-row:last-child {
+  border-bottom: none;
+}
+
+.info-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.info-value {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-navy);
+}
+
+.announcement-card {
+  border-left: 3px solid var(--color-gold);
+}
+
+.schedule-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.schedule-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 16px;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  margin-bottom: -1px;
+}
+
+.schedule-item:first-child {
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+
+.schedule-item:last-child {
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  margin-bottom: 0;
+}
+
+.schedule-item:only-child {
+  border-radius: var(--radius-sm);
+}
+
+.schedule-date {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-gold);
+  min-width: 140px;
+}
+
+.schedule-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-navy);
+}
+
+.schedule-edit-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.prize-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.prize-item {
+  text-align: center;
+  padding: 20px 16px;
+}
+
+.prize-place {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.prize-amount {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--color-navy);
+  margin-top: 4px;
+}
+
+.prize-desc {
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.passed-rule-card {
+  border-left: 3px solid var(--color-green);
+}
+
+.bylaws-content {
+  font-size: 14px;
+  color: var(--color-text);
+}
+
+.links-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.link-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  text-decoration: none;
+  color: var(--color-navy);
+  transition: box-shadow 0.15s, border-color 0.15s;
+}
+
+.link-card:hover {
+  text-decoration: none;
+  box-shadow: var(--shadow-lg);
+  border-color: var(--color-navy);
+}
