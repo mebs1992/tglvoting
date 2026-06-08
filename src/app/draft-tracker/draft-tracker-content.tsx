@@ -54,7 +54,18 @@ export default function DraftTrackerContent({
     setSyncing(false);
   }
 
-  const determined = entries.filter((e) => e.effective_position !== null).length;
+  const determined = entries.filter(
+    (e) => e.effective_position !== null
+  ).length;
+
+  const sorted = [...entries].sort((a, b) => {
+    if (a.status === "active" && b.status !== "active") return -1;
+    if (a.status !== "active" && b.status === "active") return 1;
+    const ptsA = a.group_wins * 3 + a.group_draws;
+    const ptsB = b.group_wins * 3 + b.group_draws;
+    if (ptsA !== ptsB) return ptsB - ptsA;
+    return b.goal_differential - a.goal_differential;
+  });
 
   return (
     <div className="draft-tracker-page">
@@ -78,26 +89,25 @@ export default function DraftTrackerContent({
         </div>
       )}
 
-      <DraftBoard
-        entries={entries}
+      <NationStatsTable
+        entries={sorted}
         isCommissioner={isCommissioner}
-        determined={determined}
         onRefresh={() => router.refresh()}
       />
 
       <div className="mt-24">
-        <h2 className="section-title">Nations</h2>
-        <NationGrid
+        <DraftBoard
           entries={entries}
           isCommissioner={isCommissioner}
+          determined={determined}
           onRefresh={() => router.refresh()}
         />
       </div>
 
       {isCommissioner && (
         <div className="mt-24">
-          <h2 className="section-title">Commissioner Controls</h2>
-          <CommissionerPanel
+          <h2 className="section-title">Assign Nations</h2>
+          <AssignNationForm
             entries={entries}
             members={members}
             onRefresh={() => router.refresh()}
@@ -105,6 +115,273 @@ export default function DraftTrackerContent({
         </div>
       )}
     </div>
+  );
+}
+
+function NationStatsTable({
+  entries,
+  isCommissioner,
+  onRefresh,
+}: {
+  entries: DraftEntryWithMember[];
+  isCommissioner: boolean;
+  onRefresh: () => void;
+}) {
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [elimId, setElimId] = useState<string | null>(null);
+
+  if (entries.length === 0) {
+    return (
+      <div className="card text-center">
+        <p className="text-muted">
+          No nations assigned yet.
+          {isCommissioner && " Use the form below to assign nations to members."}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+      <div className="standings-table-wrap">
+        <table className="standings-table">
+          <thead>
+            <tr>
+              <th className="standings-th"></th>
+              <th className="standings-th standings-th-left">Nation</th>
+              <th className="standings-th standings-th-left">GM</th>
+              <th className="standings-th">GP</th>
+              <th className="standings-th">W</th>
+              <th className="standings-th">L</th>
+              <th className="standings-th">D</th>
+              <th className="standings-th">GD</th>
+              <th className="standings-th">Status</th>
+              {isCommissioner && (
+                <th className="standings-th"></th>
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {entries.map((entry) => (
+              <NationRow
+                key={entry.id}
+                entry={entry}
+                isCommissioner={isCommissioner}
+                isEditing={editingId === entry.id}
+                isEliminating={elimId === entry.id}
+                onEdit={() => {
+                  setEditingId(entry.id);
+                  setElimId(null);
+                }}
+                onEliminate={() => {
+                  setElimId(entry.id);
+                  setEditingId(null);
+                }}
+                onCancel={() => {
+                  setEditingId(null);
+                  setElimId(null);
+                }}
+                onRefresh={onRefresh}
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function NationRow({
+  entry,
+  isCommissioner,
+  isEditing,
+  isEliminating,
+  onEdit,
+  onEliminate,
+  onCancel,
+  onRefresh,
+}: {
+  entry: DraftEntryWithMember;
+  isCommissioner: boolean;
+  isEditing: boolean;
+  isEliminating: boolean;
+  onEdit: () => void;
+  onEliminate: () => void;
+  onCancel: () => void;
+  onRefresh: () => void;
+}) {
+  const [w, setW] = useState(entry.group_wins.toString());
+  const [l, setL] = useState(entry.group_losses.toString());
+  const [d, setD] = useState(entry.group_draws.toString());
+  const [gd, setGd] = useState(entry.goal_differential.toString());
+  const [elimStage, setElimStage] = useState("group_stage");
+  const [saving, setSaving] = useState(false);
+
+  const isActive = entry.status === "active";
+  const isChampion = entry.elimination_stage === "champion";
+  const gp = entry.group_wins + entry.group_losses + entry.group_draws;
+
+  async function saveStats() {
+    setSaving(true);
+    await updateNationStats(
+      entry.id,
+      parseInt(w) || 0,
+      parseInt(l) || 0,
+      parseInt(d) || 0,
+      parseInt(gd) || 0
+    );
+    onCancel();
+    onRefresh();
+    setSaving(false);
+  }
+
+  async function handleEliminate() {
+    setSaving(true);
+    await eliminateNation(
+      entry.id,
+      elimStage,
+      parseInt(w) || 0,
+      parseInt(l) || 0,
+      parseInt(d) || 0,
+      parseInt(gd) || 0
+    );
+    onCancel();
+    onRefresh();
+    setSaving(false);
+  }
+
+  async function handleReactivate() {
+    setSaving(true);
+    await reactivateNation(entry.id);
+    onRefresh();
+    setSaving(false);
+  }
+
+  async function handleRemove() {
+    setSaving(true);
+    await removeNation(entry.id);
+    onRefresh();
+    setSaving(false);
+  }
+
+  if (isEditing) {
+    return (
+      <tr className="standings-tr">
+        <td className="standings-td" colSpan={isCommissioner ? 10 : 9}>
+          <div className="standings-edit-row">
+            <span style={{ fontWeight: 600, marginRight: 12 }}>
+              {flagEmoji(entry.nation_code)} {entry.nation_name}
+            </span>
+            <div className="record-inputs-inline">
+              <label>W</label>
+              <input className="input input-mini" type="number" min={0} value={w} onChange={(e) => setW(e.target.value)} />
+              <label>L</label>
+              <input className="input input-mini" type="number" min={0} value={l} onChange={(e) => setL(e.target.value)} />
+              <label>D</label>
+              <input className="input input-mini" type="number" min={0} value={d} onChange={(e) => setD(e.target.value)} />
+              <label>GD</label>
+              <input className="input input-mini" type="number" value={gd} onChange={(e) => setGd(e.target.value)} />
+            </div>
+            <button className="btn btn-primary btn-sm" onClick={saveStats} disabled={saving}>
+              {saving ? "..." : "Save"}
+            </button>
+            <button className="btn btn-outline btn-sm" onClick={onCancel}>Cancel</button>
+          </div>
+        </td>
+      </tr>
+    );
+  }
+
+  if (isEliminating) {
+    return (
+      <tr className="standings-tr">
+        <td className="standings-td" colSpan={isCommissioner ? 10 : 9}>
+          <div className="standings-edit-row">
+            <span style={{ fontWeight: 600, marginRight: 12 }}>
+              Eliminate {flagEmoji(entry.nation_code)} {entry.nation_name}
+            </span>
+            <select className="select" value={elimStage} onChange={(e) => setElimStage(e.target.value)} style={{ width: "auto", padding: "4px 28px 4px 8px", fontSize: 13 }}>
+              {STAGES.map(([key, label]) => (
+                <option key={key} value={key}>{label}</option>
+              ))}
+            </select>
+            <div className="record-inputs-inline">
+              <label>W</label>
+              <input className="input input-mini" type="number" min={0} value={w} onChange={(e) => setW(e.target.value)} />
+              <label>L</label>
+              <input className="input input-mini" type="number" min={0} value={l} onChange={(e) => setL(e.target.value)} />
+              <label>D</label>
+              <input className="input input-mini" type="number" min={0} value={d} onChange={(e) => setD(e.target.value)} />
+              <label>GD</label>
+              <input className="input input-mini" type="number" value={gd} onChange={(e) => setGd(e.target.value)} />
+            </div>
+            <button className="btn btn-no btn-sm" onClick={handleEliminate} disabled={saving}>
+              {saving ? "..." : "Confirm"}
+            </button>
+            <button className="btn btn-outline btn-sm" onClick={onCancel}>Cancel</button>
+          </div>
+        </td>
+      </tr>
+    );
+  }
+
+  return (
+    <tr className={`standings-tr ${!isActive ? "standings-tr-eliminated" : ""} ${isChampion ? "standings-tr-champion" : ""}`}>
+      <td className="standings-td standings-td-flag">
+        {flagEmoji(entry.nation_code)}
+      </td>
+      <td className="standings-td standings-td-left">
+        <span className="standings-nation">{entry.nation_name}</span>
+      </td>
+      <td className="standings-td standings-td-left">
+        <span className="standings-gm">{entry.display_name}</span>
+      </td>
+      <td className="standings-td standings-td-num">{gp}</td>
+      <td className="standings-td standings-td-num">{entry.group_wins}</td>
+      <td className="standings-td standings-td-num">{entry.group_losses}</td>
+      <td className="standings-td standings-td-num">{entry.group_draws}</td>
+      <td className="standings-td standings-td-num">
+        <span className={entry.goal_differential > 0 ? "gd-positive" : entry.goal_differential < 0 ? "gd-negative" : ""}>
+          {entry.goal_differential > 0 ? "+" : ""}{entry.goal_differential}
+        </span>
+      </td>
+      <td className="standings-td">
+        <span className={`badge ${isChampion ? "badge-champion" : isActive ? "badge-active" : "badge-eliminated"}`}>
+          {isChampion
+            ? "Champion"
+            : isActive
+              ? "Active"
+              : STAGE_LABELS[entry.elimination_stage ?? ""] ?? "Eliminated"}
+        </span>
+      </td>
+      {isCommissioner && (
+        <td className="standings-td standings-td-actions">
+          <button className="edit-icon-btn" onClick={onEdit} title="Edit stats">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M11.013 1.427a1.75 1.75 0 012.474 0l1.086 1.086a1.75 1.75 0 010 2.474l-8.61 8.61c-.21.21-.47.364-.756.442l-3.251.93a.75.75 0 01-.927-.928l.929-3.25a1.75 1.75 0 01.442-.756l8.613-8.608zm1.414 1.06a.25.25 0 00-.354 0L3.46 11.1a.25.25 0 00-.063.108l-.558 1.953 1.953-.558a.25.25 0 00.108-.063l8.613-8.613a.25.25 0 000-.354l-1.086-1.086z" fill="currentColor" />
+            </svg>
+          </button>
+          {isActive ? (
+            <button className="edit-icon-btn" onClick={onEliminate} title="Eliminate" style={{ color: "var(--color-red)" }}>
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                <path d="M8 1a7 7 0 100 14A7 7 0 008 1zm3 8H5V7h6v1z" fill="currentColor" />
+              </svg>
+            </button>
+          ) : (
+            <button className="edit-icon-btn" onClick={handleReactivate} disabled={saving} title="Reactivate" style={{ color: "var(--color-green)" }}>
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                <path d="M8 1a7 7 0 100 14A7 7 0 008 1zm1 10H7V7.41L5.46 8.95 4.05 7.54 8 3.59l3.95 3.95-1.41 1.41L9 7.41V11z" fill="currentColor" />
+              </svg>
+            </button>
+          )}
+          <button className="edit-icon-btn" onClick={handleRemove} disabled={saving} title="Remove">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M5.5 5.5v6m5-6v6m-8-8h11m-2 0l-.5 8.5a1.5 1.5 0 01-1.5 1.5h-5a1.5 1.5 0 01-1.5-1.5L3.5 3.5m3-2h3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        </td>
+      )}
+    </tr>
   );
 }
 
@@ -124,7 +401,11 @@ function DraftBoard({
     () => null
   );
   for (const entry of entries) {
-    if (entry.effective_position !== null && entry.effective_position >= 1 && entry.effective_position <= TOTAL_PICKS) {
+    if (
+      entry.effective_position !== null &&
+      entry.effective_position >= 1 &&
+      entry.effective_position <= TOTAL_PICKS
+    ) {
       picks[entry.effective_position - 1] = entry;
     }
   }
@@ -133,9 +414,11 @@ function DraftBoard({
     <div>
       <div className="flex items-center justify-between mb-8">
         <h2 className="section-title" style={{ marginBottom: 0 }}>
-          Draft Board
+          2026 Draft Order
         </h2>
-        <span className="badge badge-open">{determined} of {TOTAL_PICKS} determined</span>
+        <span className="badge badge-open">
+          {determined} of {TOTAL_PICKS} determined
+        </span>
       </div>
       <div className="draft-board">
         {picks.map((entry, i) => {
@@ -231,7 +514,10 @@ function PositionOverride({
   }
 
   return (
-    <div className="flex gap-8 items-center" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="flex gap-8 items-center"
+      onClick={(e) => e.stopPropagation()}
+    >
       <input
         className="input"
         style={{ width: 60, padding: "4px 8px", fontSize: 13 }}
@@ -261,346 +547,7 @@ function PositionOverride({
   );
 }
 
-function NationGrid({
-  entries,
-  isCommissioner,
-  onRefresh,
-}: {
-  entries: DraftEntryWithMember[];
-  isCommissioner: boolean;
-  onRefresh: () => void;
-}) {
-  if (entries.length === 0) {
-    return (
-      <div className="card text-center">
-        <p className="text-muted">No nations assigned yet.</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="nation-grid">
-      {entries.map((entry) => (
-        <NationCard
-          key={entry.id}
-          entry={entry}
-          isCommissioner={isCommissioner}
-          onRefresh={onRefresh}
-        />
-      ))}
-    </div>
-  );
-}
-
-function NationCard({
-  entry,
-  isCommissioner,
-  onRefresh,
-}: {
-  entry: DraftEntryWithMember;
-  isCommissioner: boolean;
-  onRefresh: () => void;
-}) {
-  const [editingStats, setEditingStats] = useState(false);
-  const [w, setW] = useState(entry.group_wins.toString());
-  const [l, setL] = useState(entry.group_losses.toString());
-  const [d, setD] = useState(entry.group_draws.toString());
-  const [gd, setGd] = useState(entry.goal_differential.toString());
-  const [saving, setSaving] = useState(false);
-  const [showElim, setShowElim] = useState(false);
-  const [elimStage, setElimStage] = useState("group_stage");
-
-  const isActive = entry.status === "active";
-  const isChampion = entry.elimination_stage === "champion";
-
-  async function saveStats() {
-    setSaving(true);
-    await updateNationStats(
-      entry.id,
-      parseInt(w) || 0,
-      parseInt(l) || 0,
-      parseInt(d) || 0,
-      parseInt(gd) || 0
-    );
-    setEditingStats(false);
-    onRefresh();
-    setSaving(false);
-  }
-
-  async function handleEliminate() {
-    setSaving(true);
-    await eliminateNation(
-      entry.id,
-      elimStage,
-      parseInt(w) || 0,
-      parseInt(l) || 0,
-      parseInt(d) || 0,
-      parseInt(gd) || 0
-    );
-    setShowElim(false);
-    onRefresh();
-    setSaving(false);
-  }
-
-  async function handleReactivate() {
-    setSaving(true);
-    await reactivateNation(entry.id);
-    onRefresh();
-    setSaving(false);
-  }
-
-  async function handleRemove() {
-    setSaving(true);
-    await removeNation(entry.id);
-    onRefresh();
-    setSaving(false);
-  }
-
-  return (
-    <div
-      className={`card nation-card ${isActive ? "active" : "eliminated"} ${isChampion ? "champion" : ""}`}
-    >
-      <div className="flex items-center justify-between" style={{ marginBottom: 8 }}>
-        <span
-          className={`badge ${isChampion ? "badge-champion" : isActive ? "badge-active" : "badge-eliminated"}`}
-        >
-          {isChampion
-            ? "Champion"
-            : isActive
-              ? "Active"
-              : STAGE_LABELS[entry.elimination_stage ?? ""] ?? "Eliminated"}
-        </span>
-        {entry.effective_position !== null && (
-          <span className="draft-pick-number" style={{ fontSize: 12 }}>
-            Pick {entry.effective_position}
-          </span>
-        )}
-      </div>
-
-      <div className="nation-flag-large">{flagEmoji(entry.nation_code)}</div>
-      <div className="nation-name">{entry.nation_name}</div>
-      <div className="nation-gm">{entry.display_name}</div>
-
-      {(entry.group_wins > 0 ||
-        entry.group_losses > 0 ||
-        entry.group_draws > 0) && (
-        <div className="nation-record">
-          {entry.group_wins}W-{entry.group_losses}L-{entry.group_draws}D
-          &middot; GD: {entry.goal_differential >= 0 ? "+" : ""}
-          {entry.goal_differential}
-        </div>
-      )}
-
-      {isCommissioner && !editingStats && !showElim && (
-        <div className="nation-card-actions mt-8">
-          <button
-            className="edit-icon-btn"
-            onClick={() => {
-              setW(entry.group_wins.toString());
-              setL(entry.group_losses.toString());
-              setD(entry.group_draws.toString());
-              setGd(entry.goal_differential.toString());
-              setEditingStats(true);
-            }}
-            title="Edit stats"
-          >
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-              <path
-                d="M11.013 1.427a1.75 1.75 0 012.474 0l1.086 1.086a1.75 1.75 0 010 2.474l-8.61 8.61c-.21.21-.47.364-.756.442l-3.251.93a.75.75 0 01-.927-.928l.929-3.25a1.75 1.75 0 01.442-.756l8.613-8.608zm1.414 1.06a.25.25 0 00-.354 0L3.46 11.1a.25.25 0 00-.063.108l-.558 1.953 1.953-.558a.25.25 0 00.108-.063l8.613-8.613a.25.25 0 000-.354l-1.086-1.086z"
-                fill="currentColor"
-              />
-            </svg>
-          </button>
-          {isActive ? (
-            <button
-              className="btn btn-no btn-sm"
-              style={{ fontSize: 11, padding: "3px 8px" }}
-              onClick={() => setShowElim(true)}
-            >
-              Eliminate
-            </button>
-          ) : (
-            <button
-              className="btn btn-outline btn-sm"
-              style={{ fontSize: 11, padding: "3px 8px" }}
-              onClick={handleReactivate}
-              disabled={saving}
-            >
-              Reactivate
-            </button>
-          )}
-          <button
-            className="edit-icon-btn"
-            onClick={handleRemove}
-            title="Remove nation"
-            disabled={saving}
-          >
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-              <path
-                d="M5.5 5.5v6m5-6v6m-8-8h11m-2 0l-.5 8.5a1.5 1.5 0 01-1.5 1.5h-5a1.5 1.5 0 01-1.5-1.5L3.5 3.5m3-2h3"
-                stroke="currentColor"
-                strokeWidth="1.3"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </button>
-        </div>
-      )}
-
-      {editingStats && (
-        <div className="mt-8">
-          <div className="record-inputs">
-            <div className="form-group" style={{ marginBottom: 8 }}>
-              <label style={{ fontSize: 11 }}>W</label>
-              <input
-                className="input"
-                value={w}
-                onChange={(e) => setW(e.target.value)}
-                type="number"
-                min={0}
-                style={{ padding: "4px 6px", fontSize: 13 }}
-              />
-            </div>
-            <div className="form-group" style={{ marginBottom: 8 }}>
-              <label style={{ fontSize: 11 }}>L</label>
-              <input
-                className="input"
-                value={l}
-                onChange={(e) => setL(e.target.value)}
-                type="number"
-                min={0}
-                style={{ padding: "4px 6px", fontSize: 13 }}
-              />
-            </div>
-            <div className="form-group" style={{ marginBottom: 8 }}>
-              <label style={{ fontSize: 11 }}>D</label>
-              <input
-                className="input"
-                value={d}
-                onChange={(e) => setD(e.target.value)}
-                type="number"
-                min={0}
-                style={{ padding: "4px 6px", fontSize: 13 }}
-              />
-            </div>
-          </div>
-          <div className="form-group" style={{ marginBottom: 8 }}>
-            <label style={{ fontSize: 11 }}>GD</label>
-            <input
-              className="input"
-              value={gd}
-              onChange={(e) => setGd(e.target.value)}
-              type="number"
-              style={{ padding: "4px 6px", fontSize: 13 }}
-            />
-          </div>
-          <div className="flex gap-8">
-            <button
-              className="btn btn-primary btn-sm"
-              style={{ fontSize: 11, padding: "3px 8px" }}
-              onClick={saveStats}
-              disabled={saving}
-            >
-              Save
-            </button>
-            <button
-              className="btn btn-outline btn-sm"
-              style={{ fontSize: 11, padding: "3px 8px" }}
-              onClick={() => setEditingStats(false)}
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-      {showElim && (
-        <div className="mt-8">
-          <div className="form-group" style={{ marginBottom: 8 }}>
-            <label style={{ fontSize: 11 }}>Stage</label>
-            <select
-              className="select"
-              value={elimStage}
-              onChange={(e) => setElimStage(e.target.value)}
-              style={{ padding: "4px 8px", fontSize: 13 }}
-            >
-              {STAGES.map(([key, label]) => (
-                <option key={key} value={key}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="record-inputs">
-            <div className="form-group" style={{ marginBottom: 8 }}>
-              <label style={{ fontSize: 11 }}>W</label>
-              <input
-                className="input"
-                value={w}
-                onChange={(e) => setW(e.target.value)}
-                type="number"
-                min={0}
-                style={{ padding: "4px 6px", fontSize: 13 }}
-              />
-            </div>
-            <div className="form-group" style={{ marginBottom: 8 }}>
-              <label style={{ fontSize: 11 }}>L</label>
-              <input
-                className="input"
-                value={l}
-                onChange={(e) => setL(e.target.value)}
-                type="number"
-                min={0}
-                style={{ padding: "4px 6px", fontSize: 13 }}
-              />
-            </div>
-            <div className="form-group" style={{ marginBottom: 8 }}>
-              <label style={{ fontSize: 11 }}>D</label>
-              <input
-                className="input"
-                value={d}
-                onChange={(e) => setD(e.target.value)}
-                type="number"
-                min={0}
-                style={{ padding: "4px 6px", fontSize: 13 }}
-              />
-            </div>
-          </div>
-          <div className="form-group" style={{ marginBottom: 8 }}>
-            <label style={{ fontSize: 11 }}>GD</label>
-            <input
-              className="input"
-              value={gd}
-              onChange={(e) => setGd(e.target.value)}
-              type="number"
-              style={{ padding: "4px 6px", fontSize: 13 }}
-            />
-          </div>
-          <div className="flex gap-8">
-            <button
-              className="btn btn-no btn-sm"
-              style={{ fontSize: 11, padding: "3px 8px" }}
-              onClick={handleEliminate}
-              disabled={saving}
-            >
-              Confirm Elimination
-            </button>
-            <button
-              className="btn btn-outline btn-sm"
-              style={{ fontSize: 11, padding: "3px 8px" }}
-              onClick={() => setShowElim(false)}
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function CommissionerPanel({
+function AssignNationForm({
   entries,
   members,
   onRefresh,
@@ -641,55 +588,55 @@ function CommissionerPanel({
 
   return (
     <div className="card">
-      <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12 }}>
-        Assign Nation
-      </h3>
       {unassigned.length === 0 ? (
-        <p className="text-muted">All members have been assigned nations.</p>
+        <p className="text-muted">All 12 members have been assigned nations.</p>
       ) : (
         <>
-          <div className="form-group">
-            <label>Member</label>
-            <select
-              className="select"
-              value={memberId}
-              onChange={(e) => setMemberId(e.target.value)}
-            >
-              <option value="">Select member...</option>
-              {unassigned.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.display_name}
-                </option>
-              ))}
-            </select>
+          <div className="assign-form-row">
+            <div className="form-group" style={{ flex: 2, marginBottom: 0 }}>
+              <label>Member</label>
+              <select
+                className="select"
+                value={memberId}
+                onChange={(e) => setMemberId(e.target.value)}
+              >
+                <option value="">Select member...</option>
+                {unassigned.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.display_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group" style={{ flex: 2, marginBottom: 0 }}>
+              <label>Nation</label>
+              <input
+                className="input"
+                value={nationName}
+                onChange={(e) => setNationName(e.target.value)}
+                placeholder="e.g. Brazil"
+              />
+            </div>
+            <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+              <label>Code</label>
+              <input
+                className="input"
+                value={nationCode}
+                onChange={(e) => setNationCode(e.target.value)}
+                placeholder="BR"
+                maxLength={2}
+              />
+            </div>
+            <div style={{ alignSelf: "flex-end" }}>
+              <button
+                className="btn btn-primary"
+                onClick={handleAssign}
+                disabled={saving || !memberId || !nationName.trim()}
+              >
+                {saving ? "..." : "Assign"}
+              </button>
+            </div>
           </div>
-          <div className="form-group">
-            <label>Nation Name</label>
-            <input
-              className="input"
-              value={nationName}
-              onChange={(e) => setNationName(e.target.value)}
-              placeholder="e.g. Brazil"
-            />
-          </div>
-          <div className="form-group">
-            <label>Country Code (optional, for flag)</label>
-            <input
-              className="input"
-              value={nationCode}
-              onChange={(e) => setNationCode(e.target.value)}
-              placeholder="e.g. BR"
-              maxLength={2}
-              style={{ width: 80 }}
-            />
-          </div>
-          <button
-            className="btn btn-primary btn-sm"
-            onClick={handleAssign}
-            disabled={saving || !memberId || !nationName.trim()}
-          >
-            {saving ? "Assigning..." : "Assign Nation"}
-          </button>
           {msg && (
             <p
               className={`mt-8 ${msg.includes("assigned") ? "text-muted" : "error"}`}

@@ -868,62 +868,155 @@ textarea.input {
   letter-spacing: 0.5px;
 }
 
-.nation-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 12px;
+/* Standings table */
+
+.standings-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
-.nation-card {
-  text-align: center;
-  padding: 20px 16px;
-  position: relative;
+.standings-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
 }
 
-.nation-card.active {
-  border-left: 3px solid var(--color-green);
-}
-
-.nation-card.eliminated {
-  opacity: 0.55;
-}
-
-.nation-card.champion {
-  opacity: 1;
-  border-left: 3px solid var(--color-gold);
-  background: linear-gradient(135deg, rgba(201, 168, 76, 0.06), transparent);
-}
-
-.nation-flag-large {
-  font-size: 32px;
-  line-height: 1;
-  margin: 8px 0 4px;
-}
-
-.nation-name {
-  font-size: 16px;
+.standings-th {
+  padding: 10px 12px;
+  font-size: 11px;
   font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-text-secondary);
+  text-align: center;
+  border-bottom: 2px solid var(--color-border);
+  white-space: nowrap;
+}
+
+.standings-th-left {
+  text-align: left;
+}
+
+.standings-tr {
+  transition: background 0.1s;
+}
+
+.standings-tr:hover {
+  background: rgba(26, 39, 68, 0.02);
+}
+
+.standings-tr-eliminated {
+  opacity: 0.5;
+}
+
+.standings-tr-eliminated:hover {
+  opacity: 0.75;
+}
+
+.standings-tr-champion {
+  opacity: 1;
+  background: rgba(201, 168, 76, 0.04);
+}
+
+.standings-td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+
+.standings-td-flag {
+  font-size: 20px;
+  line-height: 1;
+  width: 36px;
+  text-align: center;
+}
+
+.standings-td-left {
+  text-align: left;
+}
+
+.standings-td-num {
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
+.standings-td-actions {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.standings-td-actions .edit-icon-btn {
+  width: 26px;
+  height: 26px;
+}
+
+.standings-nation {
+  font-weight: 600;
   color: var(--color-navy);
-  margin-top: 4px;
 }
 
-.nation-gm {
-  font-size: 13px;
+.standings-gm {
   color: var(--color-text-secondary);
-  margin-top: 2px;
 }
 
-.nation-record {
-  font-size: 12px;
-  color: var(--color-text-secondary);
-  margin-top: 6px;
+.gd-positive {
+  color: var(--color-green);
+  font-weight: 600;
 }
 
-.nation-card-actions {
+.gd-negative {
+  color: var(--color-red);
+  font-weight: 600;
+}
+
+.standings-edit-row {
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 4px 0;
+}
+
+.record-inputs-inline {
+  display: flex;
+  align-items: center;
   gap: 4px;
+}
+
+.record-inputs-inline label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.input-mini {
+  width: 48px;
+  padding: 4px 6px;
+  font-size: 13px;
+  text-align: center;
+}
+
+.assign-form-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+@media (max-width: 600px) {
+  .assign-form-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .assign-form-row .form-group {
+    margin-bottom: 12px;
+  }
+
+  .standings-edit-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 
 .badge-active {
@@ -948,10 +1041,6 @@ textarea.input {
 }
 
 @media (max-width: 600px) {
-  .nation-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-
   .draft-pick-details {
     flex-direction: column;
     align-items: flex-start;
@@ -960,5 +1049,15 @@ textarea.input {
 
   .draft-pick-item {
     padding: 10px 12px;
+  }
+
+  .standings-td {
+    padding: 8px 6px;
+    font-size: 13px;
+  }
+
+  .standings-th {
+    padding: 8px 6px;
+    font-size: 10px;
   }
 }
