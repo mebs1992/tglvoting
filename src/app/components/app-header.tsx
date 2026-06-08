@@ -60,6 +60,12 @@ export default function AppHeader({ memberName, isCommissioner }: AppHeaderProps
         >
           Results
         </Link>
+        <Link
+          href="/draft-tracker"
+          className={`app-header-link ${isActive("/draft-tracker") ? "active" : ""}`}
+        >
+          Draft Tracker
+        </Link>
         {isCommissioner && (
           <Link
             href="/commissioner"
