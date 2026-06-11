@@ -700,7 +700,7 @@ textarea.input {
   animation: stamp-in 0.35s ease;
 }
 
-.dashboard-hero {
+.page-hero {
   position: relative;
   background: linear-gradient(135deg, var(--color-navy) 0%, var(--color-navy-light) 60%, #34507f 100%);
   border-radius: var(--radius);
@@ -710,7 +710,7 @@ textarea.input {
   box-shadow: var(--shadow-lg);
 }
 
-.dashboard-hero::before {
+.page-hero::before {
   content: "";
   position: absolute;
   top: -40px;
@@ -721,7 +721,7 @@ textarea.input {
   background: radial-gradient(circle, rgba(201, 168, 76, 0.25) 0%, transparent 70%);
 }
 
-.dashboard-hero-eyebrow {
+.page-hero-eyebrow {
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 2px;
@@ -730,20 +730,20 @@ textarea.input {
   margin-bottom: 6px;
 }
 
-.dashboard-hero-title {
+.page-hero-title {
   font-size: 26px;
   font-weight: 800;
   color: #fff;
   letter-spacing: -0.5px;
 }
 
-.dashboard-hero-sub {
+.page-hero-sub {
   font-size: 13px;
   color: rgba(255, 255, 255, 0.65);
   margin-top: 6px;
 }
 
-.dashboard-hero-count {
+.page-hero-count {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -1406,4 +1406,212 @@ textarea.input {
     padding: 8px 6px;
     font-size: 10px;
   }
+}
+
+/* ── Fantasy-league polish: shared ── */
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.section-title::before {
+  content: "";
+  width: 4px;
+  height: 18px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, var(--color-gold) 0%, #b8923a 100%);
+  flex-shrink: 0;
+}
+
+/* ── Home page ── */
+
+.announcement-card {
+  border-left: 3px solid var(--color-gold);
+  background:
+    radial-gradient(circle at top left, rgba(201, 168, 76, 0.08), transparent 55%),
+    var(--color-bg-card);
+}
+
+.prize-item {
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.prize-item:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-lg);
+}
+
+.prize-item:first-child {
+  border: 2px solid var(--color-gold);
+  background:
+    radial-gradient(circle at top, rgba(201, 168, 76, 0.16), transparent 70%),
+    var(--color-bg-card);
+}
+
+.prize-item:first-child::before {
+  content: "\1F3C6";
+  display: block;
+  font-size: 26px;
+  margin-bottom: 6px;
+}
+
+.prize-item:first-child .prize-amount {
+  background: linear-gradient(135deg, #8b7120 0%, var(--color-gold) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.passed-rule-card {
+  border-left: 3px solid var(--color-green);
+  background:
+    radial-gradient(circle at top left, rgba(45, 106, 79, 0.06), transparent 55%),
+    var(--color-bg-card);
+}
+
+/* ── Results page ── */
+
+.result-card {
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.result-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.result-card-passed {
+  border-left: 4px solid var(--color-green);
+  background:
+    radial-gradient(circle at top right, rgba(45, 106, 79, 0.08), transparent 60%),
+    var(--color-bg-card);
+}
+
+.result-card-failed {
+  border-left: 4px solid var(--color-red);
+  background:
+    radial-gradient(circle at top right, rgba(193, 41, 46, 0.07), transparent 60%),
+    var(--color-bg-card);
+}
+
+.result-card-mc {
+  border-left: 4px solid var(--color-gold);
+  background:
+    radial-gradient(circle at top right, rgba(201, 168, 76, 0.1), transparent 60%),
+    var(--color-bg-card);
+}
+
+.badge-lg {
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  box-shadow: 0 2px 8px rgba(26, 39, 68, 0.12);
+}
+
+.badge-passed.badge-lg {
+  background: linear-gradient(135deg, var(--color-green) 0%, var(--color-green-light) 100%);
+  color: #fff;
+}
+
+.badge-failed.badge-lg {
+  background: linear-gradient(135deg, var(--color-red) 0%, var(--color-red-light) 100%);
+  color: #fff;
+}
+
+.result-bar-track {
+  height: 10px;
+  background: var(--color-border);
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.result-bar-fill {
+  height: 100%;
+  border-radius: 5px;
+  background: linear-gradient(90deg, var(--color-gold-light) 0%, var(--color-gold) 100%);
+  transition: width 0.4s ease;
+}
+
+.result-bar-fill.winner {
+  background: linear-gradient(90deg, var(--color-gold) 0%, #b8923a 100%);
+  box-shadow: 0 0 8px rgba(201, 168, 76, 0.6);
+}
+
+.result-choice-label.winner {
+  font-weight: 800;
+  color: var(--color-navy);
+}
+
+.result-choice-label.winner::after {
+  content: " \1F451";
+}
+
+.awaiting-card {
+  border: 1.5px dashed var(--color-gold);
+  background:
+    radial-gradient(circle at top right, rgba(201, 168, 76, 0.06), transparent 60%),
+    var(--color-bg-card);
+}
+
+.badge-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, var(--color-gold) 0%, #b8923a 100%);
+  color: var(--color-navy);
+  font-weight: 800;
+  animation: ballot-pulse 2s infinite;
+}
+
+/* ── Draft tracker ── */
+
+.standings-table thead tr {
+  background: linear-gradient(135deg, var(--color-navy) 0%, var(--color-navy-light) 100%);
+}
+
+.standings-th {
+  color: rgba(255, 255, 255, 0.75);
+  border-bottom: 2px solid var(--color-gold);
+}
+
+.standings-tr-champion {
+  background: linear-gradient(90deg, rgba(201, 168, 76, 0.14), rgba(201, 168, 76, 0.03));
+}
+
+.draft-pick-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 64px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--color-navy) 0%, var(--color-navy-light) 100%);
+  color: var(--color-gold);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.draft-pick-item {
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+
+.draft-pick-item:hover {
+  transform: translateX(3px);
+}
+
+.draft-pick-item.champion {
+  border-left: 3px solid var(--color-gold);
+  background: linear-gradient(90deg, rgba(201, 168, 76, 0.16), transparent 70%);
+}
+
+.draft-pick-item.champion .draft-pick-number {
+  background: linear-gradient(135deg, var(--color-gold) 0%, #b8923a 100%);
+  color: var(--color-navy);
 }

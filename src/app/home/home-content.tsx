@@ -35,9 +35,12 @@ export default function HomeContent({
 
   return (
     <div className="home-page">
-      <div className="home-hero">
-        <h1 className="home-hero-title">The Greatest League</h1>
-        <p className="home-hero-subtitle">League Headquarters</p>
+      <div className="page-hero">
+        <div className="page-hero-eyebrow">League Headquarters</div>
+        <div className="page-hero-title">The Greatest League</div>
+        <div className="page-hero-sub">
+          Twelve GMs. One trophy. No excuses.
+        </div>
       </div>
 
       <AnnouncementsSection
