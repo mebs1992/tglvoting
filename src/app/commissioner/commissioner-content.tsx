@@ -13,15 +13,23 @@ import {
   getProposalVotingRecord,
 } from "@/app/actions/commissioner-actions";
 
+interface ProposalChoice {
+  id: string;
+  label: string;
+  display_order: number;
+}
+
 interface Proposal {
   id: string;
   title: string;
   description: string;
   status: string;
   outcome: string;
+  allow_multiple_selections: boolean;
   created_at: string;
   opened_at: string | null;
   closed_at: string | null;
+  choices: ProposalChoice[];
 }
 
 interface MemberInfo {
@@ -71,6 +79,8 @@ export default function CommissionerContent({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formTitle, setFormTitle] = useState("");
   const [formDesc, setFormDesc] = useState("");
+  const [formChoices, setFormChoices] = useState<string[]>([]);
+  const [formAllowMultiple, setFormAllowMultiple] = useState(false);
 
   const [votingRecord, setVotingRecord] = useState<VotingRecord | null>(null);
 
@@ -89,13 +99,18 @@ export default function CommissionerContent({
       setError("Title and description are required");
       return;
     }
+    const validChoices = formChoices.filter((c) => c.trim() !== "");
+    if (validChoices.length === 1) {
+      setError("Add at least 2 choices, or remove all choices for a Yes/No vote");
+      return;
+    }
 
     if (editingId) {
-      const res = await editProposal(editingId, formTitle, formDesc);
+      const res = await editProposal(editingId, formTitle, formDesc, validChoices, formAllowMultiple);
       if (res.success) setMsg("Proposal updated");
       else setError(res.error ?? "Failed");
     } else {
-      const res = await createProposal(formTitle, formDesc);
+      const res = await createProposal(formTitle, formDesc, validChoices, formAllowMultiple);
       if (res.success) setMsg("Proposal created");
       else setError(res.error ?? "Failed");
     }
@@ -104,6 +119,8 @@ export default function CommissionerContent({
     setEditingId(null);
     setFormTitle("");
     setFormDesc("");
+    setFormChoices([]);
+    setFormAllowMultiple(false);
     router.refresh();
   }
 
@@ -111,6 +128,8 @@ export default function CommissionerContent({
     setEditingId(p.id);
     setFormTitle(p.title);
     setFormDesc(p.description);
+    setFormChoices(p.choices.map((c) => c.label));
+    setFormAllowMultiple(p.allow_multiple_selections);
     setShowForm(true);
     clearMsg();
   }
@@ -262,7 +281,7 @@ export default function CommissionerContent({
         <>
           <button
             className="btn btn-gold mb-16"
-            onClick={() => { setShowForm(true); setEditingId(null); setFormTitle(""); setFormDesc(""); clearMsg(); }}
+            onClick={() => { setShowForm(true); setEditingId(null); setFormTitle(""); setFormDesc(""); setFormChoices([]); setFormAllowMultiple(false); clearMsg(); }}
           >
             + Create Proposal
           </button>
@@ -278,6 +297,60 @@ export default function CommissionerContent({
                 <label>Description</label>
                 <textarea className="input" value={formDesc} onChange={(e) => setFormDesc(e.target.value)} />
               </div>
+
+              <div className="form-group">
+                <label>Answer Choices <span className="text-muted" style={{ fontSize: 12, fontWeight: 400 }}>(leave empty for Yes/No)</span></label>
+                {formChoices.map((choice, i) => (
+                  <div key={i} className="flex gap-8 mb-8" style={{ alignItems: "center" }}>
+                    <input
+                      className="input"
+                      style={{ flex: 1 }}
+                      placeholder={`Choice ${i + 1}`}
+                      value={choice}
+                      onChange={(e) => {
+                        const updated = [...formChoices];
+                        updated[i] = e.target.value;
+                        setFormChoices(updated);
+                      }}
+                    />
+                    <button
+                      className="btn btn-sm btn-outline"
+                      style={{ borderColor: "var(--color-red)", color: "var(--color-red)", flexShrink: 0 }}
+                      onClick={() => {
+                        const updated = formChoices.filter((_, idx) => idx !== i);
+                        setFormChoices(updated);
+                        if (updated.length === 0) setFormAllowMultiple(false);
+                      }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+                <button
+                  className="btn btn-sm btn-outline"
+                  onClick={() => setFormChoices([...formChoices, ""])}
+                >
+                  + Add Choice
+                </button>
+              </div>
+
+              {formChoices.filter((c) => c.trim() !== "").length >= 2 && (
+                <div className="form-group">
+                  <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                    <input
+                      type="checkbox"
+                      checked={formAllowMultiple}
+                      onChange={(e) => setFormAllowMultiple(e.target.checked)}
+                      style={{ width: 16, height: 16 }}
+                    />
+                    Allow multiple selections
+                  </label>
+                  <span className="text-muted" style={{ fontSize: 12 }}>
+                    Members can select more than one answer
+                  </span>
+                </div>
+              )}
+
               <div className="flex gap-8">
                 <button className="btn btn-primary" onClick={handleCreateOrEdit}>
                   {editingId ? "Save Changes" : "Create"}
@@ -303,6 +376,16 @@ export default function CommissionerContent({
                 </div>
               </div>
               <p className="text-muted" style={{ fontSize: 13 }}>{p.description}</p>
+              {p.choices.length > 0 && (
+                <div style={{ fontSize: 12, marginTop: 6, color: "var(--color-text-secondary)" }}>
+                  Choices: {p.choices.map((c) => c.label).join(", ")}
+                  {p.allow_multiple_selections && (
+                    <span style={{ marginLeft: 8, color: "var(--color-gold)", fontWeight: 600 }}>
+                      (Multi-select)
+                    </span>
+                  )}
+                </div>
+              )}
               <div className="flex gap-8 mt-12 flex-wrap">
                 {p.status === "draft" && (
                   <>

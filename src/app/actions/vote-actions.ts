@@ -7,14 +7,14 @@ import { calculateOutcome } from "@/lib/voting";
 
 export async function submitVote(
   proposalId: string,
-  voteValue: "yes" | "no"
+  voteValues: string | string[]
 ): Promise<{ success: boolean; error?: string }> {
   const member = await requireMember();
   const sb = getServiceClient();
 
   const { data: proposal } = await sb
     .from("proposals")
-    .select("id, status")
+    .select("id, status, allow_multiple_selections")
     .eq("id", proposalId)
     .single();
 
@@ -26,15 +26,23 @@ export async function submitVote(
     .select("id")
     .eq("proposal_id", proposalId)
     .eq("member_id", member.id)
-    .single();
+    .limit(1);
 
-  if (existing) return { success: false, error: "You have already voted" };
+  if (existing && existing.length > 0) return { success: false, error: "You have already voted" };
 
-  const { error } = await sb.from("votes").insert({
+  const values = Array.isArray(voteValues) ? voteValues : [voteValues];
+
+  if (!proposal.allow_multiple_selections && values.length > 1) {
+    return { success: false, error: "Multiple selections not allowed for this proposal" };
+  }
+
+  const rows = values.map((v) => ({
     proposal_id: proposalId,
     member_id: member.id,
-    vote_value: voteValue,
-  });
+    vote_value: v,
+  }));
+
+  const { error } = await sb.from("votes").insert(rows);
 
   if (error) {
     if (error.code === "23505") {
@@ -44,29 +52,38 @@ export async function submitVote(
   }
 
   await logAudit(member.id, "vote_submitted", "proposal", proposalId, {
-    vote_value: voteValue,
+    vote_values: values,
   });
 
-  // Check if proposal has reached an outcome
-  const { data: votes } = await sb
-    .from("votes")
-    .select("vote_value")
-    .eq("proposal_id", proposalId);
+  const { data: choices } = await sb
+    .from("proposal_choices")
+    .select("id")
+    .eq("proposal_id", proposalId)
+    .limit(1);
 
-  if (votes) {
-    const yesCount = votes.filter((v) => v.vote_value === "yes").length;
-    const noCount = votes.filter((v) => v.vote_value === "no").length;
-    const outcome = calculateOutcome(yesCount, noCount);
+  const isMultipleChoice = choices && choices.length > 0;
 
-    if (outcome !== "pending") {
-      await sb
-        .from("proposals")
-        .update({
-          outcome,
-          status: "closed",
-          closed_at: new Date().toISOString(),
-        })
-        .eq("id", proposalId);
+  if (!isMultipleChoice) {
+    const { data: votes } = await sb
+      .from("votes")
+      .select("vote_value")
+      .eq("proposal_id", proposalId);
+
+    if (votes) {
+      const yesCount = votes.filter((v) => v.vote_value === "yes").length;
+      const noCount = votes.filter((v) => v.vote_value === "no").length;
+      const outcome = calculateOutcome(yesCount, noCount);
+
+      if (outcome !== "pending") {
+        await sb
+          .from("proposals")
+          .update({
+            outcome,
+            status: "closed",
+            closed_at: new Date().toISOString(),
+          })
+          .eq("id", proposalId);
+      }
     }
   }
 
@@ -79,11 +96,25 @@ export async function getOpenProposals() {
 
   const { data: proposals } = await sb
     .from("proposals")
-    .select("id, title, description, status, outcome, opened_at")
+    .select("id, title, description, status, outcome, allow_multiple_selections, opened_at")
     .eq("status", "open")
     .order("opened_at", { ascending: false });
 
   if (!proposals) return [];
+
+  const proposalIds = proposals.map((p) => p.id);
+  const { data: choices } = await sb
+    .from("proposal_choices")
+    .select("id, proposal_id, label, display_order")
+    .in("proposal_id", proposalIds)
+    .order("display_order", { ascending: true });
+
+  const choicesByProposal = new Map<string, { id: string; label: string }[]>();
+  for (const c of choices ?? []) {
+    const arr = choicesByProposal.get(c.proposal_id) ?? [];
+    arr.push({ id: c.id, label: c.label });
+    choicesByProposal.set(c.proposal_id, arr);
+  }
 
   const { data: myVotes } = await sb
     .from("votes")
@@ -98,6 +129,8 @@ export async function getOpenProposals() {
     description: p.description,
     status: p.status,
     hasVoted: votedIds.has(p.id),
+    allowMultipleSelections: p.allow_multiple_selections,
+    choices: choicesByProposal.get(p.id) ?? [],
   }));
 }
 
@@ -106,33 +139,69 @@ export async function getResults() {
 
   const { data: proposals } = await sb
     .from("proposals")
-    .select("id, title, description, status, outcome, opened_at, closed_at")
+    .select("id, title, description, status, outcome, allow_multiple_selections, opened_at, closed_at")
     .in("status", ["open", "closed"])
     .order("closed_at", { ascending: false, nullsFirst: false });
 
   if (!proposals) return { finalised: [], pending: [] };
 
+  const proposalIds = proposals.map((p) => p.id);
+  const { data: allChoices } = await sb
+    .from("proposal_choices")
+    .select("id, proposal_id, label, display_order")
+    .in("proposal_id", proposalIds)
+    .order("display_order", { ascending: true });
+
+  const choicesByProposal = new Map<string, { id: string; label: string }[]>();
+  for (const c of allChoices ?? []) {
+    const arr = choicesByProposal.get(c.proposal_id) ?? [];
+    arr.push({ id: c.id, label: c.label });
+    choicesByProposal.set(c.proposal_id, arr);
+  }
+
   const finalised = [];
   const pending = [];
 
   for (const p of proposals) {
-    if (p.outcome === "passed" || p.outcome === "failed") {
+    const choices = choicesByProposal.get(p.id) ?? [];
+    const isMultipleChoice = choices.length > 0;
+
+    if (p.outcome === "passed" || p.outcome === "failed" || (isMultipleChoice && p.status === "closed")) {
       const { data: votes } = await sb
         .from("votes")
         .select("vote_value")
         .eq("proposal_id", p.id);
 
-      const yesCount = (votes ?? []).filter((v) => v.vote_value === "yes").length;
-      const noCount = (votes ?? []).filter((v) => v.vote_value === "no").length;
+      if (isMultipleChoice) {
+        const choiceVoteCounts = choices.map((c) => ({
+          id: c.id,
+          label: c.label,
+          count: (votes ?? []).filter((v) => v.vote_value === c.id).length,
+        }));
+        const uniqueVoters = new Set((votes ?? []).map(() => "")).size;
 
-      finalised.push({
-        id: p.id,
-        title: p.title,
-        outcome: p.outcome,
-        yesVotes: yesCount,
-        noVotes: noCount,
-        notVoted: 12 - yesCount - noCount,
-      });
+        finalised.push({
+          id: p.id,
+          title: p.title,
+          outcome: p.outcome,
+          isMultipleChoice: true,
+          choiceResults: choiceVoteCounts,
+          totalVoters: uniqueVoters,
+        });
+      } else {
+        const yesCount = (votes ?? []).filter((v) => v.vote_value === "yes").length;
+        const noCount = (votes ?? []).filter((v) => v.vote_value === "no").length;
+
+        finalised.push({
+          id: p.id,
+          title: p.title,
+          outcome: p.outcome,
+          isMultipleChoice: false,
+          yesVotes: yesCount,
+          noVotes: noCount,
+          notVoted: 12 - yesCount - noCount,
+        });
+      }
     } else {
       pending.push({
         id: p.id,
@@ -150,14 +219,25 @@ export async function getVoteBreakdown(proposalId: string) {
 
   const { data: proposal } = await sb
     .from("proposals")
-    .select("id, title, description, status, outcome")
+    .select("id, title, description, status, outcome, allow_multiple_selections")
     .eq("id", proposalId)
     .single();
 
   if (!proposal) return null;
 
-  if (proposal.outcome !== "passed" && proposal.outcome !== "failed") {
-    return { proposal, restricted: true };
+  const { data: choices } = await sb
+    .from("proposal_choices")
+    .select("id, label, display_order")
+    .eq("proposal_id", proposalId)
+    .order("display_order", { ascending: true });
+
+  const isMultipleChoice = (choices ?? []).length > 0;
+
+  if (!isMultipleChoice && proposal.outcome !== "passed" && proposal.outcome !== "failed") {
+    return { proposal, restricted: true, isMultipleChoice: false };
+  }
+  if (isMultipleChoice && proposal.status !== "closed") {
+    return { proposal, restricted: true, isMultipleChoice: true };
   }
 
   const { data: votes } = await sb
@@ -171,6 +251,33 @@ export async function getVoteBreakdown(proposalId: string) {
     .order("created_at", { ascending: true });
 
   const votedIds = new Set((votes ?? []).map((v) => v.member_id));
+  const notVoted = (allMembers ?? [])
+    .filter((m) => !votedIds.has(m.id))
+    .map((m) => m.display_name);
+
+  if (isMultipleChoice) {
+    const choiceBreakdown = (choices ?? []).map((c) => {
+      const choiceVotes = (votes ?? []).filter((v) => v.vote_value === c.id);
+      return {
+        id: c.id,
+        label: c.label,
+        count: choiceVotes.length,
+        voters: choiceVotes.map((v) => {
+          const m = v.members as unknown as { display_name: string } | null;
+          return m?.display_name ?? "Unknown";
+        }),
+      };
+    });
+
+    return {
+      proposal,
+      restricted: false,
+      isMultipleChoice: true,
+      choiceBreakdown,
+      notVoted,
+      notVotedCount: notVoted.length,
+    };
+  }
 
   const yesVoters = (votes ?? [])
     .filter((v) => v.vote_value === "yes")
@@ -184,13 +291,11 @@ export async function getVoteBreakdown(proposalId: string) {
       const m = v.members as unknown as { display_name: string } | null;
       return m?.display_name ?? "Unknown";
     });
-  const notVoted = (allMembers ?? [])
-    .filter((m) => !votedIds.has(m.id))
-    .map((m) => m.display_name);
 
   return {
     proposal,
     restricted: false,
+    isMultipleChoice: false,
     yesVoters,
     noVoters,
     notVoted,
