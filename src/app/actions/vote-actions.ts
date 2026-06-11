@@ -3,7 +3,7 @@
 import { getServiceClient } from "@/lib/supabase-server";
 import { requireMember } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
-import { calculateOutcome } from "@/lib/voting";
+import { calculateOutcome, MAJORITY_THRESHOLD } from "@/lib/voting";
 
 export async function submitVote(
   proposalId: string,
@@ -178,6 +178,10 @@ export async function getResults() {
           label: c.label,
           count: (votes ?? []).filter((v) => v.vote_value === c.id).length,
         }));
+        choiceVoteCounts.sort((a, b) => b.count - a.count);
+        const topCount = choiceVoteCounts[0]?.count ?? 0;
+        const requiresTieBreak =
+          choices.length > 2 && topCount < MAJORITY_THRESHOLD;
         const uniqueVoters = new Set((votes ?? []).map(() => "")).size;
 
         finalised.push({
@@ -185,6 +189,7 @@ export async function getResults() {
           title: p.title,
           outcome: p.outcome,
           isMultipleChoice: true,
+          requiresTieBreak,
           choiceResults: choiceVoteCounts,
           totalVoters: uniqueVoters,
         });
@@ -268,11 +273,16 @@ export async function getVoteBreakdown(proposalId: string) {
         }),
       };
     });
+    choiceBreakdown.sort((a, b) => b.count - a.count);
+    const topCount = choiceBreakdown[0]?.count ?? 0;
+    const requiresTieBreak =
+      (choices ?? []).length > 2 && topCount < MAJORITY_THRESHOLD;
 
     return {
       proposal,
       restricted: false,
       isMultipleChoice: true,
+      requiresTieBreak,
       choiceBreakdown,
       notVoted,
       notVotedCount: notVoted.length,

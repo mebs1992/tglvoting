@@ -172,6 +172,18 @@ button {
   color: #856404;
 }
 
+.badge-tiebreak {
+  background: rgba(201, 168, 76, 0.18);
+  color: #8b7120;
+  border: 1px solid rgba(201, 168, 76, 0.5);
+}
+
+.badge-tiebreak.badge-lg {
+  background: linear-gradient(135deg, var(--color-gold) 0%, #b8923a 100%);
+  color: var(--color-navy);
+  border: none;
+}
+
 .error {
   color: var(--color-red);
   font-size: 14px;

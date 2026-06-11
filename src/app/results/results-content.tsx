@@ -11,6 +11,7 @@ interface Finalised {
   title: string;
   outcome: string;
   isMultipleChoice?: boolean;
+  requiresTieBreak?: boolean;
   yesVotes?: number;
   noVotes?: number;
   notVoted?: number;
@@ -51,7 +52,11 @@ export default function ResultsContent({
               <div className="flex items-center justify-between mb-8">
                 <h3 style={{ fontSize: 16, fontWeight: 700 }}>{p.title}</h3>
                 {p.isMultipleChoice ? (
-                  <span className="badge badge-draft badge-lg">Decided</span>
+                  p.requiresTieBreak ? (
+                    <span className="badge badge-tiebreak badge-lg">Tie-break Required</span>
+                  ) : (
+                    <span className="badge badge-draft badge-lg">Decided</span>
+                  )
                 ) : (
                   <span className={`badge badge-lg ${p.outcome === "passed" ? "badge-passed" : "badge-failed"}`}>
                     {p.outcome === "passed" ? "PASSED" : "FAILED"}
@@ -63,7 +68,7 @@ export default function ResultsContent({
                   {(() => {
                     const maxCount = Math.max(...p.choiceResults.map((cr) => cr.count), 1);
                     return p.choiceResults.map((c) => {
-                      const isWinner = c.count === maxCount && c.count > 0;
+                      const isWinner = !p.requiresTieBreak && c.count === maxCount && c.count > 0;
                       return (
                         <div key={c.id}>
                           <div
@@ -87,6 +92,12 @@ export default function ResultsContent({
                       );
                     });
                   })()}
+                  {p.requiresTieBreak && (
+                    <p className="text-muted" style={{ fontSize: 12, marginTop: 4 }}>
+                      No option reached 7 votes. The commissioner will run a tie-break
+                      between the top two options.
+                    </p>
+                  )}
                 </div>
               ) : (
                 <div className="stat-row">
