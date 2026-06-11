@@ -97,6 +97,35 @@ export async function editProposal(
   return { success: true };
 }
 
+export async function deleteProposal(
+  proposalId: string
+): Promise<{ success: boolean; error?: string }> {
+  const member = await requireCommissioner();
+  const sb = getServiceClient();
+
+  const { data: proposal } = await sb
+    .from("proposals")
+    .select("id, status, title")
+    .eq("id", proposalId)
+    .single();
+
+  if (!proposal) return { success: false, error: "Proposal not found" };
+  if (proposal.status !== "draft") {
+    return { success: false, error: "Only draft proposals can be deleted" };
+  }
+
+  const { error } = await sb
+    .from("proposals")
+    .delete()
+    .eq("id", proposalId);
+
+  if (error) return { success: false, error: "Failed to delete proposal" };
+
+  await logAudit(member.id, "proposal_deleted", "proposal", proposalId, { title: proposal.title });
+
+  return { success: true };
+}
+
 export async function openProposal(
   proposalId: string
 ): Promise<{ success: boolean; error?: string }> {

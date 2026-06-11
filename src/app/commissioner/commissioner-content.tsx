@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   createProposal,
   editProposal,
+  deleteProposal,
   openProposal,
   closeProposal,
   resetMemberPin,
@@ -391,6 +392,14 @@ export default function CommissionerContent({
                   <>
                     <button className="btn btn-sm btn-primary" onClick={() => handleOpen(p.id)}>Open</button>
                     <button className="btn btn-sm btn-outline" onClick={() => startEdit(p)}>Edit</button>
+                    <button className="btn btn-sm btn-no" onClick={async () => {
+                      if (!confirm("Delete this draft proposal?")) return;
+                      clearMsg();
+                      const res = await deleteProposal(p.id);
+                      if (res.success) setMsg("Proposal deleted");
+                      else setError(res.error ?? "Failed");
+                      router.refresh();
+                    }}>Delete</button>
                   </>
                 )}
                 {p.status === "open" && (
