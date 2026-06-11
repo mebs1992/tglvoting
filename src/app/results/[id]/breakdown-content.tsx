@@ -11,6 +11,7 @@ interface Breakdown {
   proposal: { id: string; title: string; outcome: string };
   restricted: boolean;
   isMultipleChoice: boolean;
+  requiresTieBreak?: boolean;
   yesVoters?: string[];
   noVoters?: string[];
   notVoted?: string[];
@@ -53,14 +54,24 @@ export default function BreakdownContent({ data }: { data: Breakdown | null }) {
         <div className="card result-card result-card-mc mt-16">
           <div className="flex items-center justify-between mb-8">
             <h1 style={{ fontSize: 20, fontWeight: 700 }}>{data.proposal.title}</h1>
-            <span className="badge badge-draft badge-lg">Decided</span>
+            {data.requiresTieBreak ? (
+              <span className="badge badge-tiebreak badge-lg">Tie-break Required</span>
+            ) : (
+              <span className="badge badge-draft badge-lg">Decided</span>
+            )}
           </div>
+          {data.requiresTieBreak && (
+            <p className="text-muted" style={{ fontSize: 13 }}>
+              No option reached 7 votes. The commissioner will run a tie-break
+              between the top two options.
+            </p>
+          )}
         </div>
 
         <div className="card mt-16">
           {data.choiceBreakdown.map((c) => {
             const maxCount = Math.max(...(data.choiceBreakdown ?? []).map((cr) => cr.count), 1);
-            const isWinner = c.count === maxCount && c.count > 0;
+            const isWinner = !data.requiresTieBreak && c.count === maxCount && c.count > 0;
             return (
               <div key={c.id} className="voter-section">
                 <div className="flex items-center justify-between" style={{ marginBottom: 4 }}>

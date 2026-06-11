@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   createProposal,
+  createTieBreakProposal,
   editProposal,
   deleteProposal,
   openProposal,
@@ -31,6 +32,7 @@ interface Proposal {
   opened_at: string | null;
   closed_at: string | null;
   choices: ProposalChoice[];
+  requires_tie_break: boolean;
 }
 
 interface MemberInfo {
@@ -369,6 +371,9 @@ export default function CommissionerContent({
                 <h3 style={{ fontSize: 16, fontWeight: 600 }}>{p.title}</h3>
                 <div className="flex gap-8">
                   <span className={`badge badge-${p.status}`}>{p.status}</span>
+                  {p.requires_tie_break && (
+                    <span className="badge badge-tiebreak">Tie-break needed</span>
+                  )}
                   {p.outcome !== "pending" && (
                     <span className={`badge ${p.outcome === "passed" ? "badge-passed" : "badge-failed"}`}>
                       {p.outcome}
@@ -407,6 +412,16 @@ export default function CommissionerContent({
                     <button className="btn btn-sm btn-outline" onClick={() => startEdit(p)}>Edit</button>
                     <button className="btn btn-sm btn-no" onClick={() => handleClose(p.id)}>Close</button>
                   </>
+                )}
+                {p.requires_tie_break && (
+                  <button className="btn btn-sm btn-gold" onClick={async () => {
+                    if (!confirm("Create a tie-break draft poll with the top 2 options?")) return;
+                    clearMsg();
+                    const res = await createTieBreakProposal(p.id);
+                    if (res.success) setMsg("Tie-break draft created — review it, then open it for voting");
+                    else setError(res.error ?? "Failed");
+                    router.refresh();
+                  }}>Create Tie-break Poll</button>
                 )}
                 <button className="btn btn-sm btn-outline" onClick={() => handleViewRecord(p.id)}>
                   Voting Record

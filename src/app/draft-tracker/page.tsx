@@ -21,7 +21,7 @@ export default async function DraftTrackerPage() {
           <div className="page-hero-eyebrow">World Cup 2026</div>
           <div className="page-hero-title">Draft Order Tracker</div>
           <div className="page-hero-sub">
-            Lose early, pick first. The race to the bottom is on.
+            Go deep, pick early. The champion&apos;s GM picks first.
           </div>
         </div>
         <DraftTrackerContent

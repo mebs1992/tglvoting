@@ -3,7 +3,7 @@
 import { getServiceClient } from "@/lib/supabase-server";
 import { requireCommissioner } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
-import { calculateOutcome } from "@/lib/voting";
+import { calculateOutcome, MAJORITY_THRESHOLD } from "@/lib/voting";
 
 export async function createProposal(
   title: string,
@@ -204,6 +204,82 @@ export async function closeProposal(
   return { success: true };
 }
 
+export async function createTieBreakProposal(
+  proposalId: string
+): Promise<{ success: boolean; error?: string }> {
+  const member = await requireCommissioner();
+  const sb = getServiceClient();
+
+  const { data: proposal } = await sb
+    .from("proposals")
+    .select("id, title, description, status")
+    .eq("id", proposalId)
+    .single();
+
+  if (!proposal) return { success: false, error: "Proposal not found" };
+  if (proposal.status !== "closed") {
+    return { success: false, error: "Tie-breaks can only be created from closed proposals" };
+  }
+
+  const { data: choices } = await sb
+    .from("proposal_choices")
+    .select("id, label, display_order")
+    .eq("proposal_id", proposalId)
+    .order("display_order", { ascending: true });
+
+  if (!choices || choices.length <= 2) {
+    return { success: false, error: "Tie-breaks only apply to proposals with more than 2 choices" };
+  }
+
+  const { data: votes } = await sb
+    .from("votes")
+    .select("vote_value")
+    .eq("proposal_id", proposalId);
+
+  const counted = choices.map((c) => ({
+    label: c.label,
+    count: (votes ?? []).filter((v) => v.vote_value === c.id).length,
+  }));
+  counted.sort((a, b) => b.count - a.count);
+
+  if (counted[0].count >= MAJORITY_THRESHOLD) {
+    return { success: false, error: "This proposal already has a majority winner" };
+  }
+
+  const topTwo = counted.slice(0, 2);
+
+  const { data: created, error } = await sb
+    .from("proposals")
+    .insert({
+      title: `${proposal.title} (Tie-break)`,
+      description: `Tie-break between the two most popular options from "${proposal.title}".\n\n${proposal.description}`,
+      status: "draft",
+      outcome: "pending",
+      created_by: member.id,
+      allow_multiple_selections: false,
+    })
+    .select("id")
+    .single();
+
+  if (error) return { success: false, error: "Failed to create tie-break proposal" };
+
+  const { error: choiceError } = await sb.from("proposal_choices").insert(
+    topTwo.map((c, i) => ({
+      proposal_id: created.id,
+      label: c.label,
+      display_order: i,
+    }))
+  );
+  if (choiceError) return { success: false, error: "Failed to create tie-break choices" };
+
+  await logAudit(member.id, "tiebreak_created", "proposal", created.id, {
+    sourceProposalId: proposalId,
+    options: topTwo.map((c) => c.label),
+  });
+
+  return { success: true };
+}
+
 export async function resetMemberPin(
   targetMemberId: string
 ): Promise<{ success: boolean; error?: string }> {
@@ -291,9 +367,38 @@ export async function getAllProposals() {
     choicesByProposal.set(c.proposal_id, arr);
   }
 
+  const closedMcIds = data
+    .filter(
+      (p) =>
+        p.status === "closed" && (choicesByProposal.get(p.id) ?? []).length > 2
+    )
+    .map((p) => p.id);
+
+  const tieBreakIds = new Set<string>();
+  if (closedMcIds.length > 0) {
+    const { data: votes } = await sb
+      .from("votes")
+      .select("proposal_id, vote_value")
+      .in("proposal_id", closedMcIds);
+
+    for (const id of closedMcIds) {
+      const topCount = Math.max(
+        ...(choicesByProposal.get(id) ?? []).map(
+          (c) =>
+            (votes ?? []).filter(
+              (v) => v.proposal_id === id && v.vote_value === c.id
+            ).length
+        ),
+        0
+      );
+      if (topCount < MAJORITY_THRESHOLD) tieBreakIds.add(id);
+    }
+  }
+
   return data.map((p) => ({
     ...p,
     choices: choicesByProposal.get(p.id) ?? [],
+    requires_tie_break: tieBreakIds.has(p.id),
   }));
 }
 

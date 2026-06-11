@@ -1,5 +1,7 @@
 export type ProposalOutcome = "passed" | "failed" | "pending";
 
+export const MAJORITY_THRESHOLD = 7;
+
 export interface OutcomeResult {
   yesVotes: number;
   noVotes: number;
@@ -14,7 +16,7 @@ export function calculateOutcome(
   yesVotes: number,
   noVotes: number,
 ): ProposalOutcome {
-  if (yesVotes >= 7) return "passed";
+  if (yesVotes >= MAJORITY_THRESHOLD) return "passed";
   if (noVotes >= 6) return "failed";
   return "pending";
 }
