@@ -17,7 +17,6 @@ export default async function DashboardPage() {
         isCommissioner={member.is_commissioner}
       />
       <div className="container">
-        <h1 className="page-title">Open Issues</h1>
         <DashboardContent initialProposals={proposals} />
       </div>
     </>

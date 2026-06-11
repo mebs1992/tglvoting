@@ -27,6 +27,7 @@ export default function DashboardContent({ initialProposals }: { initialProposal
   const [selectedChoices, setSelectedChoices] = useState<Set<string>>(new Set());
 
   const proposals = initialProposals;
+  const pendingCount = proposals.filter((p) => !p.hasVoted).length;
 
   function handleToggle(id: string) {
     if (expandedId === id) {
@@ -67,243 +68,137 @@ export default function DashboardContent({ initialProposals }: { initialProposal
     setVoting(false);
   }
 
-  if (proposals.length === 0) {
-    return (
-      <div className="card text-center">
-        <p className="text-muted">No open proposals at this time.</p>
-      </div>
-    );
-  }
-
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      {proposals.map((p) => {
-        const isExpanded = expandedId === p.id;
+    <>
+      <div className="dashboard-hero">
+        <div className="dashboard-hero-eyebrow">League Business</div>
+        <div className="dashboard-hero-title">The Voting Floor</div>
+        <div className="dashboard-hero-sub">
+          Every vote shapes the league. Make yours count.
+        </div>
+        <div className="dashboard-hero-count">
+          {pendingCount === 0
+            ? "✅ All caught up — no votes pending"
+            : `\u{1F5F3}️ ${pendingCount} vote${pendingCount === 1 ? "" : "s"} awaiting your call`}
+        </div>
+      </div>
 
-        return (
-          <div
-            key={p.id}
-            style={{
-              background: "var(--color-bg-card)",
-              borderRadius: "var(--radius)",
-              boxShadow: isExpanded ? "var(--shadow-lg)" : "var(--shadow)",
-              border: isExpanded
-                ? "2px solid var(--color-gold)"
-                : "1px solid var(--color-border)",
-              overflow: "hidden",
-              transition: "box-shadow 0.2s, border-color 0.2s",
-            }}
-          >
-            {/* Clickable header */}
-            <div
-              onClick={() => handleToggle(p.id)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: "16px 20px",
-                cursor: "pointer",
-                gap: 12,
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0 }}>
-                <div style={{
-                  width: 10,
-                  height: 10,
-                  borderRadius: "50%",
-                  background: p.hasVoted ? "var(--color-green)" : "var(--color-gold)",
-                  flexShrink: 0,
-                }} />
-                <h3 style={{
-                  fontSize: 16,
-                  fontWeight: 600,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}>
-                  {p.title}
-                </h3>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-                {p.hasVoted ? (
-                  <span className="badge badge-voted">Voted</span>
-                ) : (
-                  <span className="badge badge-pending">Pending</span>
-                )}
-                <span style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  width: 24,
-                  height: 24,
-                  borderRadius: "50%",
-                  fontSize: 12,
-                  color: "var(--color-text-secondary)",
-                  transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)",
-                  transition: "transform 0.2s",
-                }}>
-                  &#9660;
-                </span>
-              </div>
-            </div>
+      {proposals.length === 0 ? (
+        <div className="card text-center">
+          <p className="text-muted">No open proposals at this time. The floor is quiet&hellip; for now.</p>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {proposals.map((p, index) => {
+            const isExpanded = expandedId === p.id;
 
-            {/* Expandable voting panel */}
-            {isExpanded && (
-              <div style={{
-                borderTop: "1px solid var(--color-border)",
-                padding: "20px 24px",
-                background: "linear-gradient(180deg, rgba(201, 168, 76, 0.03) 0%, transparent 100%)",
-              }}>
-                <p style={{
-                  color: "var(--color-text-secondary)",
-                  fontSize: 14,
-                  lineHeight: 1.7,
-                  marginBottom: 20,
-                }}>
-                  {p.description}
-                </p>
+            return (
+              <div key={p.id} className={`ballot-card ${isExpanded ? "expanded" : ""}`}>
+                <div className="ballot-header" onClick={() => handleToggle(p.id)}>
+                  <div className="ballot-number">#{index + 1}</div>
+                  <div className="ballot-title">{p.title}</div>
+                  {p.hasVoted ? (
+                    <span className="ballot-chip ballot-chip-voted">&#10003; Voted</span>
+                  ) : (
+                    <span className="ballot-chip ballot-chip-pending">Vote Now</span>
+                  )}
+                  <span className="ballot-chevron">&#9660;</span>
+                </div>
 
-                {p.hasVoted ? (
-                  <div style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 12,
-                    padding: "14px 18px",
-                    background: "rgba(45, 106, 79, 0.06)",
-                    borderRadius: "var(--radius-sm)",
-                    border: "1px solid rgba(45, 106, 79, 0.15)",
-                  }}>
-                    <span style={{ fontSize: 20 }}>&#10003;</span>
-                    <div>
-                      <div style={{ fontWeight: 600, fontSize: 14, color: "var(--color-green)" }}>
-                        Vote Submitted
+                {isExpanded && (
+                  <div className="ballot-body">
+                    <p className="ballot-desc">{p.description}</p>
+
+                    {p.hasVoted ? (
+                      <div className="ballot-voted-banner">
+                        <div className="ballot-voted-stamp">&#10003;</div>
+                        <div>
+                          <div style={{ fontWeight: 800, fontSize: 15, color: "var(--color-green)" }}>
+                            Ballot Cast
+                          </div>
+                          <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginTop: 2 }}>
+                            Your vote is locked in. Results drop once this issue reaches an outcome.
+                          </div>
+                        </div>
                       </div>
-                      <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 2 }}>
-                        Your vote is locked. Results visible once the issue reaches an outcome.
+                    ) : p.choices.length > 0 ? (
+                      <div>
+                        {p.allowMultipleSelections && (
+                          <span className="ballot-multi-hint">
+                            &#10003;&#10003; Pick as many as you like
+                          </span>
+                        )}
+                        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 18 }}>
+                          {p.choices.map((c) => {
+                            const isSelected = selectedChoices.has(c.id);
+                            return (
+                              <label
+                                key={c.id}
+                                className={`ballot-choice ${isSelected ? "selected" : ""}`}
+                              >
+                                <input
+                                  type={p.allowMultipleSelections ? "checkbox" : "radio"}
+                                  name={`choice-${p.id}`}
+                                  checked={isSelected}
+                                  onChange={() => toggleChoice(c.id, p.allowMultipleSelections)}
+                                />
+                                {c.label}
+                              </label>
+                            );
+                          })}
+                        </div>
+                        <button
+                          className="ballot-submit"
+                          onClick={() => {
+                            const values = Array.from(selectedChoices);
+                            if (values.length === 0) return;
+                            handleVote(p.id, p.allowMultipleSelections ? values : values[0]);
+                          }}
+                          disabled={voting || selectedChoices.size === 0}
+                        >
+                          {voting ? "Submitting…" : "Lock In My Vote"}
+                        </button>
                       </div>
-                    </div>
-                  </div>
-                ) : p.choices.length > 0 ? (
-                  <div>
-                    {p.allowMultipleSelections && (
-                      <p style={{
-                        fontSize: 13,
-                        color: "var(--color-gold)",
-                        fontWeight: 600,
-                        marginBottom: 12,
-                        textTransform: "uppercase",
-                        letterSpacing: 0.5,
-                      }}>
-                        Select one or more options
+                    ) : (
+                      <div className="ballot-vote-grid">
+                        <button
+                          className="ballot-vote-btn ballot-vote-yes"
+                          onClick={() => handleVote(p.id, "yes")}
+                          disabled={voting}
+                        >
+                          Yes
+                        </button>
+                        <button
+                          className="ballot-vote-btn ballot-vote-no"
+                          onClick={() => handleVote(p.id, "no")}
+                          disabled={voting}
+                        >
+                          No
+                        </button>
+                      </div>
+                    )}
+
+                    {message && (
+                      <p
+                        style={{
+                          marginTop: 14,
+                          fontSize: 13,
+                          fontWeight: 600,
+                          color: message.includes("submitted")
+                            ? "var(--color-green)"
+                            : "var(--color-red)",
+                        }}
+                      >
+                        {message}
                       </p>
                     )}
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
-                      {p.choices.map((c) => {
-                        const isSelected = selectedChoices.has(c.id);
-                        return (
-                          <label
-                            key={c.id}
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 12,
-                              padding: "12px 16px",
-                              borderRadius: "var(--radius-sm)",
-                              border: isSelected
-                                ? "2px solid var(--color-gold)"
-                                : "2px solid var(--color-border)",
-                              cursor: "pointer",
-                              transition: "all 0.15s",
-                              background: isSelected
-                                ? "rgba(201, 168, 76, 0.08)"
-                                : "var(--color-bg-card)",
-                              boxShadow: isSelected ? "0 0 0 1px var(--color-gold)" : "none",
-                            }}
-                          >
-                            <input
-                              type={p.allowMultipleSelections ? "checkbox" : "radio"}
-                              name={`choice-${p.id}`}
-                              checked={isSelected}
-                              onChange={() => toggleChoice(c.id, p.allowMultipleSelections)}
-                              style={{ width: 18, height: 18, accentColor: "var(--color-gold)" }}
-                            />
-                            <span style={{ fontSize: 15, fontWeight: 500 }}>{c.label}</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                    <button
-                      className="btn btn-gold"
-                      style={{ width: "100%", padding: "12px 20px", fontSize: 15 }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const values = Array.from(selectedChoices);
-                        if (values.length === 0) return;
-                        handleVote(p.id, p.allowMultipleSelections ? values : values[0]);
-                      }}
-                      disabled={voting || selectedChoices.size === 0}
-                    >
-                      {voting ? "Submitting..." : "Submit Vote"}
-                    </button>
                   </div>
-                ) : (
-                  <div style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gap: 12,
-                  }}>
-                    <button
-                      className="btn"
-                      style={{
-                        padding: "16px 20px",
-                        fontSize: 16,
-                        fontWeight: 700,
-                        background: "var(--color-green)",
-                        color: "#fff",
-                        borderRadius: "var(--radius-sm)",
-                        border: "none",
-                        letterSpacing: 1,
-                      }}
-                      onClick={(e) => { e.stopPropagation(); handleVote(p.id, "yes"); }}
-                      disabled={voting}
-                    >
-                      YES
-                    </button>
-                    <button
-                      className="btn"
-                      style={{
-                        padding: "16px 20px",
-                        fontSize: 16,
-                        fontWeight: 700,
-                        background: "var(--color-red)",
-                        color: "#fff",
-                        borderRadius: "var(--radius-sm)",
-                        border: "none",
-                        letterSpacing: 1,
-                      }}
-                      onClick={(e) => { e.stopPropagation(); handleVote(p.id, "no"); }}
-                      disabled={voting}
-                    >
-                      NO
-                    </button>
-                  </div>
-                )}
-
-                {message && (
-                  <p style={{
-                    marginTop: 12,
-                    fontSize: 13,
-                    color: message.includes("submitted") ? "var(--color-green)" : "var(--color-red)",
-                    fontWeight: 500,
-                  }}>
-                    {message}
-                  </p>
                 )}
               </div>
-            )}
-          </div>
-        );
-      })}
-    </div>
+            );
+          })}
+        </div>
+      )}
+    </>
   );
 }

@@ -411,6 +411,352 @@ textarea.input {
   font-size: 16px;
 }
 
+/* ── Ballot / Voting Cards ── */
+
+@keyframes ballot-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(201, 168, 76, 0.45); }
+  50% { box-shadow: 0 0 0 7px rgba(201, 168, 76, 0); }
+}
+
+@keyframes ballot-slide {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes stamp-in {
+  0% { transform: scale(1.6) rotate(-8deg); opacity: 0; }
+  100% { transform: scale(1) rotate(-3deg); opacity: 1; }
+}
+
+.ballot-card {
+  background: var(--color-bg-card);
+  border-radius: var(--radius);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  transition: transform 0.18s, box-shadow 0.18s, border-color 0.18s;
+}
+
+.ballot-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.ballot-card.expanded {
+  border-color: var(--color-gold);
+  box-shadow: 0 8px 28px rgba(26, 39, 68, 0.18);
+  transform: none;
+}
+
+.ballot-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+}
+
+.ballot-card.expanded .ballot-header {
+  background: linear-gradient(135deg, var(--color-navy) 0%, var(--color-navy-light) 100%);
+}
+
+.ballot-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--color-gold) 0%, #b8923a 100%);
+  color: var(--color-navy);
+  font-weight: 800;
+  font-size: 14px;
+  flex-shrink: 0;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), 0 2px 4px rgba(26,39,68,0.2);
+}
+
+.ballot-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-navy);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ballot-card.expanded .ballot-title {
+  color: #fff;
+  white-space: normal;
+}
+
+.ballot-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  flex-shrink: 0;
+}
+
+.ballot-chip-pending {
+  background: linear-gradient(135deg, var(--color-gold) 0%, #b8923a 100%);
+  color: var(--color-navy);
+  animation: ballot-pulse 2s infinite;
+}
+
+.ballot-chip-voted {
+  background: linear-gradient(135deg, var(--color-green) 0%, var(--color-green-light) 100%);
+  color: #fff;
+}
+
+.ballot-chevron {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  transition: transform 0.25s;
+  flex-shrink: 0;
+}
+
+.ballot-card.expanded .ballot-chevron {
+  transform: rotate(180deg);
+  color: var(--color-gold);
+}
+
+.ballot-body {
+  padding: 22px;
+  border-top: 2px solid var(--color-gold);
+  background:
+    radial-gradient(circle at top right, rgba(201, 168, 76, 0.08), transparent 60%),
+    var(--color-bg-card);
+  animation: ballot-slide 0.25s ease;
+}
+
+.ballot-desc {
+  font-size: 14.5px;
+  line-height: 1.7;
+  color: var(--color-text-secondary);
+  margin-bottom: 20px;
+  padding-left: 14px;
+  border-left: 3px solid var(--color-gold);
+}
+
+.ballot-vote-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.ballot-vote-btn {
+  position: relative;
+  padding: 20px;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 19px;
+  font-weight: 900;
+  letter-spacing: 2.5px;
+  color: #fff;
+  text-transform: uppercase;
+  transition: transform 0.12s, box-shadow 0.12s, filter 0.12s;
+  overflow: hidden;
+}
+
+.ballot-vote-btn::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.18) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+.ballot-vote-yes {
+  background: linear-gradient(135deg, var(--color-green) 0%, var(--color-green-light) 100%);
+  box-shadow: 0 4px 14px rgba(45, 106, 79, 0.4);
+}
+
+.ballot-vote-no {
+  background: linear-gradient(135deg, var(--color-red) 0%, var(--color-red-light) 100%);
+  box-shadow: 0 4px 14px rgba(193, 41, 46, 0.4);
+}
+
+.ballot-vote-btn:hover:not(:disabled) {
+  transform: translateY(-2px) scale(1.02);
+  filter: brightness(1.08);
+}
+
+.ballot-vote-btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+}
+
+.ballot-vote-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.ballot-choice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: var(--radius-sm);
+  border: 2px solid var(--color-border);
+  background: var(--color-bg-card);
+  cursor: pointer;
+  transition: all 0.15s;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-navy);
+}
+
+.ballot-choice:hover {
+  border-color: var(--color-gold-light);
+  transform: translateX(3px);
+}
+
+.ballot-choice.selected {
+  border-color: var(--color-gold);
+  background: linear-gradient(135deg, rgba(201, 168, 76, 0.14) 0%, rgba(201, 168, 76, 0.05) 100%);
+  box-shadow: 0 2px 10px rgba(201, 168, 76, 0.25);
+  transform: translateX(3px);
+}
+
+.ballot-choice input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-gold);
+  flex-shrink: 0;
+}
+
+.ballot-multi-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--color-navy);
+  background: linear-gradient(135deg, var(--color-gold) 0%, var(--color-gold-light) 100%);
+  padding: 5px 12px;
+  border-radius: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 14px;
+}
+
+.ballot-submit {
+  width: 100%;
+  padding: 16px;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--color-navy);
+  background: linear-gradient(135deg, var(--color-gold) 0%, #b8923a 100%);
+  box-shadow: 0 4px 14px rgba(201, 168, 76, 0.45);
+  transition: transform 0.12s, filter 0.12s;
+}
+
+.ballot-submit:hover:not(:disabled) {
+  transform: translateY(-2px);
+  filter: brightness(1.06);
+}
+
+.ballot-submit:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.ballot-voted-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 20px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, rgba(45, 106, 79, 0.1) 0%, rgba(64, 145, 108, 0.05) 100%);
+  border: 1.5px solid rgba(45, 106, 79, 0.3);
+}
+
+.ballot-voted-stamp {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--color-green) 0%, var(--color-green-light) 100%);
+  color: #fff;
+  font-size: 22px;
+  font-weight: 900;
+  flex-shrink: 0;
+  box-shadow: 0 3px 10px rgba(45, 106, 79, 0.4);
+  animation: stamp-in 0.35s ease;
+}
+
+.dashboard-hero {
+  position: relative;
+  background: linear-gradient(135deg, var(--color-navy) 0%, var(--color-navy-light) 60%, #34507f 100%);
+  border-radius: var(--radius);
+  padding: 26px 24px;
+  margin-bottom: 20px;
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+}
+
+.dashboard-hero::before {
+  content: "";
+  position: absolute;
+  top: -40px;
+  right: -40px;
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(201, 168, 76, 0.25) 0%, transparent 70%);
+}
+
+.dashboard-hero-eyebrow {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--color-gold);
+  margin-bottom: 6px;
+}
+
+.dashboard-hero-title {
+  font-size: 26px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.5px;
+}
+
+.dashboard-hero-sub {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.65);
+  margin-top: 6px;
+}
+
+.dashboard-hero-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 7px 16px;
+  border-radius: 20px;
+  background: rgba(201, 168, 76, 0.15);
+  border: 1px solid rgba(201, 168, 76, 0.4);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-gold);
+}
+
 .stat-row {
   display: flex;
   gap: 16px;
