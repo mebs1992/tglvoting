@@ -334,7 +334,7 @@ export default function CommissionerContent({
                 </button>
               </div>
 
-              {formChoices.filter((c) => c.trim() !== "").length >= 2 && (
+              {formChoices.length >= 2 && (
                 <div className="form-group">
                   <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
                     <input
