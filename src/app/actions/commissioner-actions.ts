@@ -7,7 +7,9 @@ import { calculateOutcome } from "@/lib/voting";
 
 export async function createProposal(
   title: string,
-  description: string
+  description: string,
+  choices: string[] = [],
+  allowMultipleSelections: boolean = false
 ): Promise<{ success: boolean; error?: string; id?: string }> {
   const member = await requireCommissioner();
   const sb = getServiceClient();
@@ -20,11 +22,24 @@ export async function createProposal(
       status: "draft",
       outcome: "pending",
       created_by: member.id,
+      allow_multiple_selections: choices.length > 0 && allowMultipleSelections,
     })
     .select("id")
     .single();
 
   if (error) return { success: false, error: "Failed to create proposal" };
+
+  if (choices.length > 0) {
+    const choiceRows = choices.map((label, i) => ({
+      proposal_id: data.id,
+      label: label.trim(),
+      display_order: i,
+    }));
+    const { error: choiceError } = await sb
+      .from("proposal_choices")
+      .insert(choiceRows);
+    if (choiceError) return { success: false, error: "Failed to create choices" };
+  }
 
   await logAudit(member.id, "proposal_created", "proposal", data.id, { title });
 
@@ -34,7 +49,9 @@ export async function createProposal(
 export async function editProposal(
   proposalId: string,
   title: string,
-  description: string
+  description: string,
+  choices: string[] = [],
+  allowMultipleSelections: boolean = false
 ): Promise<{ success: boolean; error?: string }> {
   const member = await requireCommissioner();
   const sb = getServiceClient();
@@ -52,10 +69,28 @@ export async function editProposal(
 
   const { error } = await sb
     .from("proposals")
-    .update({ title, description, updated_at: new Date().toISOString() })
+    .update({
+      title,
+      description,
+      allow_multiple_selections: choices.length > 0 && allowMultipleSelections,
+      updated_at: new Date().toISOString(),
+    })
     .eq("id", proposalId);
 
   if (error) return { success: false, error: "Failed to edit proposal" };
+
+  await sb.from("proposal_choices").delete().eq("proposal_id", proposalId);
+  if (choices.length > 0) {
+    const choiceRows = choices.map((label, i) => ({
+      proposal_id: proposalId,
+      label: label.trim(),
+      display_order: i,
+    }));
+    const { error: choiceError } = await sb
+      .from("proposal_choices")
+      .insert(choiceRows);
+    if (choiceError) return { success: false, error: "Failed to update choices" };
+  }
 
   await logAudit(member.id, "proposal_edited", "proposal", proposalId, { title });
 
@@ -208,10 +243,29 @@ export async function getAllProposals() {
 
   const { data } = await sb
     .from("proposals")
-    .select("id, title, description, status, outcome, created_at, opened_at, closed_at")
+    .select("id, title, description, status, outcome, allow_multiple_selections, created_at, opened_at, closed_at")
     .order("created_at", { ascending: false });
 
-  return data ?? [];
+  if (!data || data.length === 0) return [];
+
+  const proposalIds = data.map((p) => p.id);
+  const { data: choices } = await sb
+    .from("proposal_choices")
+    .select("id, proposal_id, label, display_order")
+    .in("proposal_id", proposalIds)
+    .order("display_order", { ascending: true });
+
+  const choicesByProposal = new Map<string, { id: string; label: string; display_order: number }[]>();
+  for (const c of choices ?? []) {
+    const arr = choicesByProposal.get(c.proposal_id) ?? [];
+    arr.push({ id: c.id, label: c.label, display_order: c.display_order });
+    choicesByProposal.set(c.proposal_id, arr);
+  }
+
+  return data.map((p) => ({
+    ...p,
+    choices: choicesByProposal.get(p.id) ?? [],
+  }));
 }
 
 export async function getAllMembers() {

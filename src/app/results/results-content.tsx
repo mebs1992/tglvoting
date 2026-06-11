@@ -1,12 +1,21 @@
 import Link from "next/link";
 
+interface ChoiceResult {
+  id: string;
+  label: string;
+  count: number;
+}
+
 interface Finalised {
   id: string;
   title: string;
   outcome: string;
-  yesVotes: number;
-  noVotes: number;
-  notVoted: number;
+  isMultipleChoice?: boolean;
+  yesVotes?: number;
+  noVotes?: number;
+  notVoted?: number;
+  choiceResults?: ChoiceResult[];
+  totalVoters?: number;
 }
 
 interface Pending {
@@ -34,24 +43,58 @@ export default function ResultsContent({
           <div key={p.id} className="card">
             <div className="flex items-center justify-between mb-8">
               <h3 style={{ fontSize: 16, fontWeight: 600 }}>{p.title}</h3>
-              <span className={`badge ${p.outcome === "passed" ? "badge-passed" : "badge-failed"}`}>
-                {p.outcome === "passed" ? "PASSED" : "FAILED"}
-              </span>
+              {!p.isMultipleChoice && (
+                <span className={`badge ${p.outcome === "passed" ? "badge-passed" : "badge-failed"}`}>
+                  {p.outcome === "passed" ? "PASSED" : "FAILED"}
+                </span>
+              )}
+              {p.isMultipleChoice && (
+                <span className="badge badge-closed">CLOSED</span>
+              )}
             </div>
-            <div className="stat-row">
-              <div className="stat-item">
-                <div className="stat-value" style={{ color: "var(--color-green)" }}>{p.yesVotes}</div>
-                <div className="stat-label">Yes</div>
+            {p.isMultipleChoice && p.choiceResults ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {p.choiceResults.map((c) => {
+                  const maxCount = Math.max(...(p.choiceResults ?? []).map((cr) => cr.count), 1);
+                  return (
+                    <div key={c.id}>
+                      <div className="flex items-center justify-between" style={{ fontSize: 14, marginBottom: 4 }}>
+                        <span>{c.label}</span>
+                        <span style={{ fontWeight: 600 }}>{c.count} vote{c.count !== 1 ? "s" : ""}</span>
+                      </div>
+                      <div style={{
+                        height: 6,
+                        background: "var(--color-border)",
+                        borderRadius: 3,
+                        overflow: "hidden",
+                      }}>
+                        <div style={{
+                          height: "100%",
+                          width: `${(c.count / maxCount) * 100}%`,
+                          background: "var(--color-gold)",
+                          borderRadius: 3,
+                        }} />
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-              <div className="stat-item">
-                <div className="stat-value" style={{ color: "var(--color-red)" }}>{p.noVotes}</div>
-                <div className="stat-label">No</div>
+            ) : (
+              <div className="stat-row">
+                <div className="stat-item">
+                  <div className="stat-value" style={{ color: "var(--color-green)" }}>{p.yesVotes}</div>
+                  <div className="stat-label">Yes</div>
+                </div>
+                <div className="stat-item">
+                  <div className="stat-value" style={{ color: "var(--color-red)" }}>{p.noVotes}</div>
+                  <div className="stat-label">No</div>
+                </div>
+                <div className="stat-item">
+                  <div className="stat-value" style={{ color: "var(--color-text-secondary)" }}>{p.notVoted}</div>
+                  <div className="stat-label">Not Voted</div>
+                </div>
               </div>
-              <div className="stat-item">
-                <div className="stat-value" style={{ color: "var(--color-text-secondary)" }}>{p.notVoted}</div>
-                <div className="stat-label">Not Voted</div>
-              </div>
-            </div>
+            )}
             <div className="mt-12">
               <Link href={`/results/${p.id}`} className="btn btn-sm btn-outline">
                 Vote Breakdown
