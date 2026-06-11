@@ -50,36 +50,29 @@ export default function BreakdownContent({ data }: { data: Breakdown | null }) {
           &larr; Back to Results
         </Link>
 
-        <div className="card mt-16">
+        <div className="card result-card result-card-mc mt-16">
           <div className="flex items-center justify-between mb-8">
             <h1 style={{ fontSize: 20, fontWeight: 700 }}>{data.proposal.title}</h1>
-            <span className="badge badge-closed">CLOSED</span>
+            <span className="badge badge-draft badge-lg">Decided</span>
           </div>
         </div>
 
         <div className="card mt-16">
           {data.choiceBreakdown.map((c) => {
             const maxCount = Math.max(...(data.choiceBreakdown ?? []).map((cr) => cr.count), 1);
+            const isWinner = c.count === maxCount && c.count > 0;
             return (
               <div key={c.id} className="voter-section">
                 <div className="flex items-center justify-between" style={{ marginBottom: 4 }}>
-                  <div className="voter-section-title" style={{ color: "var(--color-gold)" }}>
+                  <div className={`voter-section-title result-choice-label ${isWinner ? "winner" : ""}`} style={{ color: "var(--color-gold)" }}>
                     {c.label} ({c.count})
                   </div>
                 </div>
-                <div style={{
-                  height: 6,
-                  background: "var(--color-border)",
-                  borderRadius: 3,
-                  overflow: "hidden",
-                  marginBottom: 8,
-                }}>
-                  <div style={{
-                    height: "100%",
-                    width: `${(c.count / maxCount) * 100}%`,
-                    background: "var(--color-gold)",
-                    borderRadius: 3,
-                  }} />
+                <div className="result-bar-track" style={{ marginBottom: 8 }}>
+                  <div
+                    className={`result-bar-fill ${isWinner ? "winner" : ""}`}
+                    style={{ width: `${(c.count / maxCount) * 100}%` }}
+                  />
                 </div>
                 <ul className="voter-list">
                   {c.voters.map((name) => (
@@ -115,10 +108,10 @@ export default function BreakdownContent({ data }: { data: Breakdown | null }) {
         &larr; Back to Results
       </Link>
 
-      <div className="card mt-16">
+      <div className={`card result-card mt-16 ${isPassed ? "result-card-passed" : "result-card-failed"}`}>
         <div className="flex items-center justify-between mb-8">
           <h1 style={{ fontSize: 20, fontWeight: 700 }}>{data.proposal.title}</h1>
-          <span className={`badge ${isPassed ? "badge-passed" : "badge-failed"}`}>
+          <span className={`badge badge-lg ${isPassed ? "badge-passed" : "badge-failed"}`}>
             {isPassed ? "PASSED" : "FAILED"}
           </span>
         </div>

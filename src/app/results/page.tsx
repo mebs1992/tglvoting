@@ -17,7 +17,13 @@ export default async function ResultsPage() {
         isCommissioner={member.is_commissioner}
       />
       <div className="container">
-        <h1 className="page-title">Results</h1>
+        <div className="page-hero">
+          <div className="page-hero-eyebrow">League History</div>
+          <div className="page-hero-title">The Record Books</div>
+          <div className="page-hero-sub">
+            Every verdict the league has handed down — etched forever.
+          </div>
+        </div>
         <ResultsContent finalised={finalised} pending={pending} />
       </div>
     </>

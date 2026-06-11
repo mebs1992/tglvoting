@@ -17,7 +17,13 @@ export default async function DraftTrackerPage() {
         isCommissioner={member.is_commissioner}
       />
       <div className="container">
-        <h1 className="page-title">Draft Order Tracker</h1>
+        <div className="page-hero">
+          <div className="page-hero-eyebrow">World Cup 2026</div>
+          <div className="page-hero-title">Draft Order Tracker</div>
+          <div className="page-hero-sub">
+            Lose early, pick first. The race to the bottom is on.
+          </div>
+        </div>
         <DraftTrackerContent
           entries={trackerData.entries}
           members={trackerData.members}

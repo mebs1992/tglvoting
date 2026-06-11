@@ -70,13 +70,13 @@ export default function DashboardContent({ initialProposals }: { initialProposal
 
   return (
     <>
-      <div className="dashboard-hero">
-        <div className="dashboard-hero-eyebrow">League Business</div>
-        <div className="dashboard-hero-title">The Voting Floor</div>
-        <div className="dashboard-hero-sub">
+      <div className="page-hero">
+        <div className="page-hero-eyebrow">League Business</div>
+        <div className="page-hero-title">The Voting Floor</div>
+        <div className="page-hero-sub">
           Every vote shapes the league. Make yours count.
         </div>
-        <div className="dashboard-hero-count">
+        <div className="page-hero-count">
           {pendingCount === 0
             ? "✅ All caught up — no votes pending"
             : `\u{1F5F3}️ ${pendingCount} vote${pendingCount === 1 ? "" : "s"} awaiting your call`}
