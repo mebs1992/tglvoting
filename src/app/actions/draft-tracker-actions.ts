@@ -280,10 +280,18 @@ export async function syncFromApi(): Promise<{
     return { success: false, error: "No nations assigned yet" };
   }
 
+  const validEntries = entries.filter(
+    (e: { nation_name: string | null }) => e.nation_name
+  );
+
+  if (validEntries.length === 0) {
+    return { success: false, error: "No nations with names to sync" };
+  }
+
   let statsMap;
   try {
     statsMap = await getNationStats(
-      entries.map((e: { nation_name: string }) => e.nation_name)
+      validEntries.map((e: { nation_name: string }) => e.nation_name)
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown API error";
@@ -291,7 +299,7 @@ export async function syncFromApi(): Promise<{
   }
 
   let updated = 0;
-  for (const entry of entries) {
+  for (const entry of validEntries) {
     const normName = entry.nation_name.trim().toLowerCase();
     const stats = statsMap.get(normName);
     if (!stats) continue;
