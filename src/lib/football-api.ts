@@ -16,8 +16,8 @@ interface ApiScore {
 
 interface ApiTeam {
   id: number;
-  name: string;
-  tla: string;
+  name: string | null;
+  tla: string | null;
 }
 
 interface ApiMatch {
@@ -86,8 +86,8 @@ async function fetchMatches(): Promise<ApiMatch[]> {
   return json.matches;
 }
 
-function normalizeTeamName(name: string): string {
-  return name.trim().toLowerCase();
+function normalizeTeamName(name: string | null | undefined): string {
+  return (name ?? "").trim().toLowerCase();
 }
 
 export async function getNationStats(
