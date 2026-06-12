@@ -90,6 +90,74 @@ export async function submitVote(
   return { success: true };
 }
 
+export async function getRecentVerdicts() {
+  await requireMember();
+  const sb = getServiceClient();
+
+  const { data: proposals } = await sb
+    .from("proposals")
+    .select("id, title, status, outcome, allow_multiple_selections, closed_at")
+    .eq("status", "closed")
+    .order("closed_at", { ascending: false })
+    .limit(5);
+
+  if (!proposals || proposals.length === 0) return [];
+
+  const proposalIds = proposals.map((p) => p.id);
+  const [{ data: allChoices }, { data: allVotes }] = await Promise.all([
+    sb
+      .from("proposal_choices")
+      .select("id, proposal_id, label, display_order")
+      .in("proposal_id", proposalIds)
+      .order("display_order", { ascending: true }),
+    sb
+      .from("votes")
+      .select("proposal_id, vote_value")
+      .in("proposal_id", proposalIds),
+  ]);
+
+  const choicesByProposal = new Map<string, { id: string; label: string }[]>();
+  for (const c of allChoices ?? []) {
+    const arr = choicesByProposal.get(c.proposal_id) ?? [];
+    arr.push({ id: c.id, label: c.label });
+    choicesByProposal.set(c.proposal_id, arr);
+  }
+
+  return proposals.map((p) => {
+    const choices = choicesByProposal.get(p.id) ?? [];
+    const votes = (allVotes ?? []).filter((v) => v.proposal_id === p.id);
+    const isMultipleChoice = choices.length > 0;
+
+    if (isMultipleChoice) {
+      const counted = choices
+        .map((c) => ({
+          label: c.label,
+          count: votes.filter((v) => v.vote_value === c.id).length,
+        }))
+        .sort((a, b) => b.count - a.count);
+      const topCount = counted[0]?.count ?? 0;
+      const requiresTieBreak = choices.length > 2 && topCount < MAJORITY_THRESHOLD;
+      return {
+        id: p.id,
+        title: p.title,
+        outcome: p.outcome as string,
+        isMultipleChoice: true,
+        requiresTieBreak,
+        winnerLabel: requiresTieBreak ? null : (counted[0]?.label ?? null),
+      };
+    }
+
+    return {
+      id: p.id,
+      title: p.title,
+      outcome: p.outcome as string,
+      isMultipleChoice: false,
+      requiresTieBreak: false,
+      winnerLabel: null,
+    };
+  });
+}
+
 export async function getOpenProposals() {
   const member = await requireMember();
   const sb = getServiceClient();

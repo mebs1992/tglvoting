@@ -660,6 +660,23 @@ textarea.input {
   margin-bottom: 14px;
 }
 
+.verdict-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.verdict-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
 .ballot-submit {
   width: 100%;
   padding: 16px;
