@@ -19,7 +19,22 @@ interface Proposal {
   choices: Choice[];
 }
 
-export default function DashboardContent({ initialProposals }: { initialProposals: Proposal[] }) {
+interface Verdict {
+  id: string;
+  title: string;
+  outcome: string;
+  isMultipleChoice: boolean;
+  requiresTieBreak: boolean;
+  winnerLabel: string | null;
+}
+
+export default function DashboardContent({
+  initialProposals,
+  recentVerdicts,
+}: {
+  initialProposals: Proposal[];
+  recentVerdicts: Verdict[];
+}) {
   const router = useRouter();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [voting, setVoting] = useState(false);
@@ -198,6 +213,40 @@ export default function DashboardContent({ initialProposals }: { initialProposal
             );
           })}
         </div>
+      )}
+
+      {recentVerdicts.length > 0 && (
+        <>
+          <h2 className="section-title mt-24">Recent Verdicts</h2>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {recentVerdicts.map((v) => {
+              const isPassed = v.outcome === "passed";
+              let outcomeLabel: string;
+              let badgeClass: string;
+
+              if (v.requiresTieBreak) {
+                outcomeLabel = "Tie-break Required";
+                badgeClass = "badge-tiebreak";
+              } else if (v.isMultipleChoice) {
+                outcomeLabel = v.winnerLabel ?? "Decided";
+                badgeClass = "badge-draft";
+              } else {
+                outcomeLabel = isPassed ? "PASSED" : "FAILED";
+                badgeClass = isPassed ? "badge-passed" : "badge-failed";
+              }
+
+              return (
+                <div
+                  key={v.id}
+                  className="verdict-row"
+                >
+                  <span className="verdict-title">{v.title}</span>
+                  <span className={`badge ${badgeClass}`}>{outcomeLabel}</span>
+                </div>
+              );
+            })}
+          </div>
+        </>
       )}
     </>
   );
