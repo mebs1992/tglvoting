@@ -677,6 +677,61 @@ textarea.input {
   color: var(--color-text);
 }
 
+.ballot-chip-count {
+  background: rgba(26, 39, 68, 0.1);
+  color: var(--color-navy);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.live-votes-section {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border);
+}
+
+.live-votes-header {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-text-secondary);
+  margin-bottom: 10px;
+}
+
+.live-votes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.live-vote-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  background: rgba(26, 39, 68, 0.04);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+}
+
+.live-vote-name {
+  font-weight: 600;
+}
+
+.live-vote-value {
+  font-weight: 700;
+  color: var(--color-navy);
+}
+
+.live-vote-yes {
+  color: var(--color-green);
+}
+
+.live-vote-no {
+  color: var(--color-red);
+}
+
 .ballot-submit {
   width: 100%;
   padding: 16px;

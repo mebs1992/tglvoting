@@ -12,6 +12,8 @@ interface Finalised {
   outcome: string;
   isMultipleChoice?: boolean;
   requiresTieBreak?: boolean;
+  hasMajority?: boolean;
+  winnerLabel?: string | null;
   yesVotes?: number;
   noVotes?: number;
   notVoted?: number;
@@ -54,8 +56,10 @@ export default function ResultsContent({
                 {p.isMultipleChoice ? (
                   p.requiresTieBreak ? (
                     <span className="badge badge-tiebreak badge-lg">Tie-break Required</span>
+                  ) : p.hasMajority ? (
+                    <span className="badge badge-passed badge-lg">{p.winnerLabel}</span>
                   ) : (
-                    <span className="badge badge-draft badge-lg">Decided</span>
+                    <span className="badge badge-draft badge-lg">{p.winnerLabel ?? "Decided"}</span>
                   )
                 ) : (
                   <span className={`badge badge-lg ${p.outcome === "passed" ? "badge-passed" : "badge-failed"}`}>
