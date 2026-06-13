@@ -12,6 +12,8 @@ interface Breakdown {
   restricted: boolean;
   isMultipleChoice: boolean;
   requiresTieBreak?: boolean;
+  hasMajority?: boolean;
+  winnerLabel?: string | null;
   yesVoters?: string[];
   noVoters?: string[];
   notVoted?: string[];
@@ -56,8 +58,10 @@ export default function BreakdownContent({ data }: { data: Breakdown | null }) {
             <h1 style={{ fontSize: 20, fontWeight: 700 }}>{data.proposal.title}</h1>
             {data.requiresTieBreak ? (
               <span className="badge badge-tiebreak badge-lg">Tie-break Required</span>
+            ) : data.hasMajority ? (
+              <span className="badge badge-passed badge-lg">{data.winnerLabel}</span>
             ) : (
-              <span className="badge badge-draft badge-lg">Decided</span>
+              <span className="badge badge-draft badge-lg">{data.winnerLabel ?? "Decided"}</span>
             )}
           </div>
           {data.requiresTieBreak && (

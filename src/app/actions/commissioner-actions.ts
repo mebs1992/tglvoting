@@ -5,44 +5,6 @@ import { requireCommissioner } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import { calculateOutcome, MAJORITY_THRESHOLD } from "@/lib/voting";
 
-interface ChoiceRow {
-  id: string;
-  label: string;
-}
-
-function buildYesNoMap(
-  choices: ChoiceRow[]
-): Map<string, "yes" | "no"> | null {
-  if (choices.length !== 2) return null;
-  const sorted = [...choices].sort((a, b) =>
-    a.label.trim().toLowerCase().localeCompare(b.label.trim().toLowerCase())
-  );
-  if (
-    sorted[0].label.trim().toLowerCase() === "no" &&
-    sorted[1].label.trim().toLowerCase() === "yes"
-  ) {
-    const map = new Map<string, "yes" | "no">();
-    map.set(sorted[1].id, "yes");
-    map.set(sorted[0].id, "no");
-    return map;
-  }
-  return null;
-}
-
-function countYesNo(
-  votes: { vote_value: string }[],
-  ynMap: Map<string, "yes" | "no"> | null
-): { yesCount: number; noCount: number } {
-  let yesCount = 0;
-  let noCount = 0;
-  for (const v of votes) {
-    const mapped = ynMap ? ynMap.get(v.vote_value) : v.vote_value;
-    if (mapped === "yes") yesCount++;
-    else if (mapped === "no") noCount++;
-  }
-  return { yesCount, noCount };
-}
-
 function isYesNoChoices(choices: string[]): boolean {
   if (choices.length !== 2) return false;
   const sorted = choices.map((c) => c.trim().toLowerCase()).sort();
@@ -227,12 +189,16 @@ export async function closeProposal(
 
   const [{ data: votes }, { data: choices }] = await Promise.all([
     sb.from("votes").select("vote_value").eq("proposal_id", proposalId),
-    sb.from("proposal_choices").select("id, label").eq("proposal_id", proposalId),
+    sb.from("proposal_choices").select("id").eq("proposal_id", proposalId).limit(1),
   ]);
 
-  const ynMap = buildYesNoMap(choices ?? []);
-  const { yesCount, noCount } = countYesNo(votes ?? [], ynMap);
-  const outcome = calculateOutcome(yesCount, noCount);
+  const isDefaultYesNo = !choices || choices.length === 0;
+  let outcome: string = "pending";
+  if (isDefaultYesNo) {
+    const yesCount = (votes ?? []).filter((v) => v.vote_value === "yes").length;
+    const noCount = (votes ?? []).filter((v) => v.vote_value === "no").length;
+    outcome = calculateOutcome(yesCount, noCount);
+  }
 
   const { error } = await sb
     .from("proposals")

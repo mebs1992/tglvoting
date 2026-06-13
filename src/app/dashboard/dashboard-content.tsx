@@ -9,6 +9,12 @@ interface Choice {
   label: string;
 }
 
+interface LiveVote {
+  memberName: string;
+  voteValue: string;
+  voteLabel: string;
+}
+
 interface Proposal {
   id: string;
   title: string;
@@ -17,6 +23,8 @@ interface Proposal {
   hasVoted: boolean;
   allowMultipleSelections: boolean;
   choices: Choice[];
+  liveVotes: LiveVote[];
+  totalMembers: number;
 }
 
 interface Verdict {
@@ -26,6 +34,7 @@ interface Verdict {
   isMultipleChoice: boolean;
   requiresTieBreak: boolean;
   winnerLabel: string | null;
+  hasMajority: boolean;
 }
 
 export default function DashboardContent({
@@ -106,12 +115,16 @@ export default function DashboardContent({
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {proposals.map((p, index) => {
             const isExpanded = expandedId === p.id;
+            const votedCount = new Set(p.liveVotes.map((v) => v.memberName)).size;
 
             return (
               <div key={p.id} className={`ballot-card ${isExpanded ? "expanded" : ""}`}>
                 <div className="ballot-header" onClick={() => handleToggle(p.id)}>
                   <div className="ballot-number">#{index + 1}</div>
                   <div className="ballot-title">{p.title}</div>
+                  <span className="ballot-chip ballot-chip-count">
+                    {votedCount}/{p.totalMembers}
+                  </span>
                   {p.hasVoted ? (
                     <span className="ballot-chip ballot-chip-voted">&#10003; Voted</span>
                   ) : (
@@ -132,7 +145,7 @@ export default function DashboardContent({
                             Ballot Cast
                           </div>
                           <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginTop: 2 }}>
-                            Your vote is locked in. Results drop once this issue reaches an outcome.
+                            Your vote is locked in. Waiting for all {p.totalMembers} members to vote.
                           </div>
                         </div>
                       </div>
@@ -207,6 +220,28 @@ export default function DashboardContent({
                         {message}
                       </p>
                     )}
+
+                    {/* Live vote breakdown */}
+                    {p.liveVotes.length > 0 && (
+                      <div className="live-votes-section">
+                        <div className="live-votes-header">
+                          Votes Cast ({votedCount}/{p.totalMembers})
+                        </div>
+                        <div className="live-votes-list">
+                          {p.liveVotes.map((v, i) => (
+                            <div key={i} className="live-vote-row">
+                              <span className="live-vote-name">{v.memberName}</span>
+                              <span className={`live-vote-value ${
+                                v.voteLabel === "Yes" ? "live-vote-yes" :
+                                v.voteLabel === "No" ? "live-vote-no" : ""
+                              }`}>
+                                {v.voteLabel}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -229,17 +264,14 @@ export default function DashboardContent({
                 badgeClass = "badge-tiebreak";
               } else if (v.isMultipleChoice) {
                 outcomeLabel = v.winnerLabel ?? "Decided";
-                badgeClass = "badge-draft";
+                badgeClass = v.hasMajority ? "badge-passed" : "badge-draft";
               } else {
                 outcomeLabel = isPassed ? "PASSED" : "FAILED";
                 badgeClass = isPassed ? "badge-passed" : "badge-failed";
               }
 
               return (
-                <div
-                  key={v.id}
-                  className="verdict-row"
-                >
+                <div key={v.id} className="verdict-row">
                   <span className="verdict-title">{v.title}</span>
                   <span className={`badge ${badgeClass}`}>{outcomeLabel}</span>
                 </div>

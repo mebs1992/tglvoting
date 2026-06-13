@@ -5,43 +5,7 @@ import { requireMember } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import { calculateOutcome, MAJORITY_THRESHOLD } from "@/lib/voting";
 
-interface ChoiceRow {
-  id: string;
-  label: string;
-}
-
-function buildYesNoMap(
-  choices: ChoiceRow[]
-): Map<string, "yes" | "no"> | null {
-  if (choices.length !== 2) return null;
-  const sorted = [...choices].sort((a, b) =>
-    a.label.trim().toLowerCase().localeCompare(b.label.trim().toLowerCase())
-  );
-  if (
-    sorted[0].label.trim().toLowerCase() === "no" &&
-    sorted[1].label.trim().toLowerCase() === "yes"
-  ) {
-    const map = new Map<string, "yes" | "no">();
-    map.set(sorted[1].id, "yes");
-    map.set(sorted[0].id, "no");
-    return map;
-  }
-  return null;
-}
-
-function countYesNo(
-  votes: { vote_value: string }[],
-  ynMap: Map<string, "yes" | "no"> | null
-): { yesCount: number; noCount: number } {
-  let yesCount = 0;
-  let noCount = 0;
-  for (const v of votes) {
-    const mapped = ynMap ? ynMap.get(v.vote_value) : v.vote_value;
-    if (mapped === "yes") yesCount++;
-    else if (mapped === "no") noCount++;
-  }
-  return { yesCount, noCount };
-}
+const TOTAL_MEMBERS = 12;
 
 export async function submitVote(
   proposalId: string,
@@ -93,34 +57,50 @@ export async function submitVote(
     vote_values: values,
   });
 
-  const { data: choices } = await sb
-    .from("proposal_choices")
-    .select("id, label")
+  // Auto-close when all members have voted
+  const { data: allVotes } = await sb
+    .from("votes")
+    .select("member_id")
     .eq("proposal_id", proposalId);
 
-  const ynMap = buildYesNoMap(choices ?? []);
-  const isYesNo = (choices ?? []).length === 0 || ynMap !== null;
+  const uniqueVoters = new Set((allVotes ?? []).map((v) => v.member_id));
+  if (uniqueVoters.size >= TOTAL_MEMBERS) {
+    const { data: choices } = await sb
+      .from("proposal_choices")
+      .select("id")
+      .eq("proposal_id", proposalId)
+      .limit(1);
 
-  if (isYesNo) {
-    const { data: votes } = await sb
-      .from("votes")
-      .select("vote_value")
-      .eq("proposal_id", proposalId);
+    const isDefaultYesNo = !choices || choices.length === 0;
 
-    if (votes) {
-      const { yesCount, noCount } = countYesNo(votes, ynMap);
+    if (isDefaultYesNo) {
+      const voteValues = (allVotes ?? []).map((v) => v as unknown as { vote_value: string });
+      // Re-fetch with vote_value
+      const { data: votesWithValue } = await sb
+        .from("votes")
+        .select("vote_value")
+        .eq("proposal_id", proposalId);
+      const yesCount = (votesWithValue ?? []).filter((v) => v.vote_value === "yes").length;
+      const noCount = (votesWithValue ?? []).filter((v) => v.vote_value === "no").length;
       const outcome = calculateOutcome(yesCount, noCount);
 
-      if (outcome !== "pending") {
-        await sb
-          .from("proposals")
-          .update({
-            outcome,
-            status: "closed",
-            closed_at: new Date().toISOString(),
-          })
-          .eq("id", proposalId);
-      }
+      await sb
+        .from("proposals")
+        .update({
+          outcome,
+          status: "closed",
+          closed_at: new Date().toISOString(),
+        })
+        .eq("id", proposalId);
+    } else {
+      await sb
+        .from("proposals")
+        .update({
+          outcome: "pending",
+          status: "closed",
+          closed_at: new Date().toISOString(),
+        })
+        .eq("id", proposalId);
     }
   }
 
@@ -163,10 +143,9 @@ export async function getRecentVerdicts() {
   return proposals.map((p) => {
     const choices = choicesByProposal.get(p.id) ?? [];
     const votes = (allVotes ?? []).filter((v) => v.proposal_id === p.id);
-    const ynMap = buildYesNoMap(choices);
-    const isYesNo = choices.length === 0 || ynMap !== null;
+    const isDefaultYesNo = choices.length === 0;
 
-    if (!isYesNo) {
+    if (!isDefaultYesNo) {
       const counted = choices
         .map((c) => ({
           label: c.label,
@@ -174,26 +153,27 @@ export async function getRecentVerdicts() {
         }))
         .sort((a, b) => b.count - a.count);
       const topCount = counted[0]?.count ?? 0;
-      const requiresTieBreak = choices.length > 2 && topCount < MAJORITY_THRESHOLD;
+      const hasMajority = topCount >= MAJORITY_THRESHOLD;
+      const requiresTieBreak = choices.length > 2 && !hasMajority;
       return {
         id: p.id,
         title: p.title,
         outcome: p.outcome as string,
         isMultipleChoice: true,
         requiresTieBreak,
-        winnerLabel: requiresTieBreak ? null : (counted[0]?.label ?? null),
+        winnerLabel: counted[0]?.label ?? null,
+        hasMajority,
       };
     }
 
-    const { yesCount, noCount } = countYesNo(votes, ynMap);
-    const outcome = calculateOutcome(yesCount, noCount);
     return {
       id: p.id,
       title: p.title,
-      outcome: outcome === "pending" ? (p.outcome as string) : outcome,
+      outcome: p.outcome as string,
       isMultipleChoice: false,
       requiresTieBreak: false,
       winnerLabel: null,
+      hasMajority: false,
     };
   });
 }
@@ -211,11 +191,17 @@ export async function getOpenProposals() {
   if (!proposals) return [];
 
   const proposalIds = proposals.map((p) => p.id);
-  const { data: choices } = await sb
-    .from("proposal_choices")
-    .select("id, proposal_id, label, display_order")
-    .in("proposal_id", proposalIds)
-    .order("display_order", { ascending: true });
+  const [{ data: choices }, { data: allVotes }] = await Promise.all([
+    sb
+      .from("proposal_choices")
+      .select("id, proposal_id, label, display_order")
+      .in("proposal_id", proposalIds)
+      .order("display_order", { ascending: true }),
+    sb
+      .from("votes")
+      .select("proposal_id, member_id, vote_value, members(display_name)")
+      .in("proposal_id", proposalIds),
+  ]);
 
   const choicesByProposal = new Map<string, { id: string; label: string }[]>();
   for (const c of choices ?? []) {
@@ -231,15 +217,37 @@ export async function getOpenProposals() {
 
   const votedIds = new Set((myVotes ?? []).map((v) => v.proposal_id));
 
-  return proposals.map((p) => ({
-    id: p.id,
-    title: p.title,
-    description: p.description,
-    status: p.status,
-    hasVoted: votedIds.has(p.id),
-    allowMultipleSelections: p.allow_multiple_selections,
-    choices: choicesByProposal.get(p.id) ?? [],
-  }));
+  return proposals.map((p) => {
+    const pChoices = choicesByProposal.get(p.id) ?? [];
+    const pVotes = (allVotes ?? []).filter((v) => v.proposal_id === p.id);
+
+    // Build live vote breakdown
+    const liveVotes: { memberName: string; voteValue: string; voteLabel: string }[] = [];
+    for (const v of pVotes) {
+      const m = v.members as unknown as { display_name: string } | null;
+      const memberName = m?.display_name ?? "Unknown";
+      let voteLabel = v.vote_value;
+      if (pChoices.length > 0) {
+        const choice = pChoices.find((c) => c.id === v.vote_value);
+        if (choice) voteLabel = choice.label;
+      } else {
+        voteLabel = v.vote_value === "yes" ? "Yes" : v.vote_value === "no" ? "No" : v.vote_value;
+      }
+      liveVotes.push({ memberName, voteValue: v.vote_value, voteLabel });
+    }
+
+    return {
+      id: p.id,
+      title: p.title,
+      description: p.description,
+      status: p.status,
+      hasVoted: votedIds.has(p.id),
+      allowMultipleSelections: p.allow_multiple_selections,
+      choices: pChoices,
+      liveVotes,
+      totalMembers: TOTAL_MEMBERS,
+    };
+  });
 }
 
 export async function getResults() {
@@ -272,17 +280,15 @@ export async function getResults() {
 
   for (const p of proposals) {
     const choices = choicesByProposal.get(p.id) ?? [];
-    const ynMap = buildYesNoMap(choices);
-    const isYesNo = choices.length === 0 || ynMap !== null;
-    const isRealMultipleChoice = choices.length > 0 && ynMap === null;
+    const isDefaultYesNo = choices.length === 0;
 
-    if (p.outcome === "passed" || p.outcome === "failed" || (isRealMultipleChoice && p.status === "closed") || (isYesNo && p.status === "closed")) {
+    if (p.status === "closed") {
       const { data: votes } = await sb
         .from("votes")
         .select("vote_value")
         .eq("proposal_id", p.id);
 
-      if (isRealMultipleChoice) {
+      if (!isDefaultYesNo) {
         const choiceVoteCounts = choices.map((c) => ({
           id: c.id,
           label: c.label,
@@ -290,9 +296,8 @@ export async function getResults() {
         }));
         choiceVoteCounts.sort((a, b) => b.count - a.count);
         const topCount = choiceVoteCounts[0]?.count ?? 0;
-        const requiresTieBreak =
-          choices.length > 2 && topCount < MAJORITY_THRESHOLD;
-        const uniqueVoters = new Set((votes ?? []).map(() => "")).size;
+        const hasMajority = topCount >= MAJORITY_THRESHOLD;
+        const requiresTieBreak = choices.length > 2 && !hasMajority;
 
         finalised.push({
           id: p.id,
@@ -300,21 +305,23 @@ export async function getResults() {
           outcome: p.outcome,
           isMultipleChoice: true,
           requiresTieBreak,
+          hasMajority,
+          winnerLabel: choiceVoteCounts[0]?.label ?? null,
           choiceResults: choiceVoteCounts,
-          totalVoters: uniqueVoters,
+          totalVoters: new Set((votes ?? []).map((v) => v.vote_value)).size,
         });
       } else {
-        const { yesCount, noCount } = countYesNo(votes ?? [], ynMap);
-        const outcome = calculateOutcome(yesCount, noCount);
+        const yesCount = (votes ?? []).filter((v) => v.vote_value === "yes").length;
+        const noCount = (votes ?? []).filter((v) => v.vote_value === "no").length;
 
         finalised.push({
           id: p.id,
           title: p.title,
-          outcome: outcome === "pending" ? p.outcome : outcome,
+          outcome: p.outcome,
           isMultipleChoice: false,
           yesVotes: yesCount,
           noVotes: noCount,
-          notVoted: 12 - yesCount - noCount,
+          notVoted: TOTAL_MEMBERS - yesCount - noCount,
         });
       }
     } else {
@@ -346,15 +353,10 @@ export async function getVoteBreakdown(proposalId: string) {
     .eq("proposal_id", proposalId)
     .order("display_order", { ascending: true });
 
-  const ynMap = buildYesNoMap(choices ?? []);
-  const isYesNo = (choices ?? []).length === 0 || ynMap !== null;
-  const isRealMultipleChoice = (choices ?? []).length > 0 && ynMap === null;
+  const isDefaultYesNo = (choices ?? []).length === 0;
 
-  if (isYesNo && proposal.outcome !== "passed" && proposal.outcome !== "failed" && proposal.status !== "closed") {
-    return { proposal, restricted: true, isMultipleChoice: false };
-  }
-  if (isRealMultipleChoice && proposal.status !== "closed") {
-    return { proposal, restricted: true, isMultipleChoice: true };
+  if (proposal.status !== "closed") {
+    return { proposal, restricted: true, isMultipleChoice: !isDefaultYesNo };
   }
 
   const { data: votes } = await sb
@@ -372,52 +374,42 @@ export async function getVoteBreakdown(proposalId: string) {
     .filter((m) => !votedIds.has(m.id))
     .map((m) => m.display_name);
 
-  if (isRealMultipleChoice) {
+  const getName = (v: { members: unknown }) => {
+    const m = v.members as { display_name: string } | null;
+    return m?.display_name ?? "Unknown";
+  };
+
+  if (!isDefaultYesNo) {
     const choiceBreakdown = (choices ?? []).map((c) => {
       const choiceVotes = (votes ?? []).filter((v) => v.vote_value === c.id);
       return {
         id: c.id,
         label: c.label,
         count: choiceVotes.length,
-        voters: choiceVotes.map((v) => {
-          const m = v.members as unknown as { display_name: string } | null;
-          return m?.display_name ?? "Unknown";
-        }),
+        voters: choiceVotes.map(getName),
       };
     });
     choiceBreakdown.sort((a, b) => b.count - a.count);
     const topCount = choiceBreakdown[0]?.count ?? 0;
+    const hasMajority = topCount >= MAJORITY_THRESHOLD;
     const requiresTieBreak =
-      (choices ?? []).length > 2 && topCount < MAJORITY_THRESHOLD;
+      (choices ?? []).length > 2 && !hasMajority;
 
     return {
       proposal,
       restricted: false,
       isMultipleChoice: true,
       requiresTieBreak,
+      hasMajority,
+      winnerLabel: choiceBreakdown[0]?.label ?? null,
       choiceBreakdown,
       notVoted,
       notVotedCount: notVoted.length,
     };
   }
 
-  const getName = (v: { members: unknown }) => {
-    const m = v.members as { display_name: string } | null;
-    return m?.display_name ?? "Unknown";
-  };
-
-  const yesVoters = (votes ?? [])
-    .filter((v) => {
-      const mapped = ynMap ? ynMap.get(v.vote_value) : v.vote_value;
-      return mapped === "yes";
-    })
-    .map(getName);
-  const noVoters = (votes ?? [])
-    .filter((v) => {
-      const mapped = ynMap ? ynMap.get(v.vote_value) : v.vote_value;
-      return mapped === "no";
-    })
-    .map(getName);
+  const yesVoters = (votes ?? []).filter((v) => v.vote_value === "yes").map(getName);
+  const noVoters = (votes ?? []).filter((v) => v.vote_value === "no").map(getName);
 
   return {
     proposal,
