@@ -27,6 +27,9 @@ export interface DraftTrackerData {
 
 export async function getDraftTrackerData(): Promise<DraftTrackerData> {
   await requireMember();
+
+  await autoSync();
+
   const sb = getServiceClient();
 
   const [entriesRes, membersRes] = await Promise.all([
@@ -264,12 +267,11 @@ export async function overrideDraftPosition(
   return { success: true };
 }
 
-export async function syncFromApi(): Promise<{
+async function syncCore(): Promise<{
   success: boolean;
   error?: string;
   updated?: number;
 }> {
-  const member = await requireCommissioner();
   const sb = getServiceClient();
 
   const { data: entries } = await sb
@@ -327,11 +329,34 @@ export async function syncFromApi(): Promise<{
 
   await recalculatePositions();
 
-  await logAudit(member.id, "draft_api_synced", "draft_tracker", null, {
-    updated,
-  });
-
   return { success: true, updated };
+}
+
+async function autoSync() {
+  if (!process.env.FOOTBALL_DATA_API_KEY) return;
+  try {
+    await syncCore();
+  } catch {
+    // Silent fail — don't block page load
+  }
+}
+
+export async function syncFromApi(): Promise<{
+  success: boolean;
+  error?: string;
+  updated?: number;
+}> {
+  const member = await requireCommissioner();
+
+  const result = await syncCore();
+
+  if (result.success) {
+    await logAudit(member.id, "draft_api_synced", "draft_tracker", null, {
+      updated: result.updated,
+    });
+  }
+
+  return result;
 }
 
 async function recalculatePositions() {
