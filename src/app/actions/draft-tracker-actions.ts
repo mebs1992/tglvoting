@@ -27,9 +27,6 @@ export interface DraftTrackerData {
 
 export async function getDraftTrackerData(): Promise<DraftTrackerData> {
   await requireMember();
-
-  await autoSync();
-
   const sb = getServiceClient();
 
   const [entriesRes, membersRes] = await Promise.all([
@@ -332,12 +329,16 @@ async function syncCore(): Promise<{
   return { success: true, updated };
 }
 
-async function autoSync() {
-  if (!process.env.FOOTBALL_DATA_API_KEY) return;
+export async function autoSync(): Promise<{
+  success: boolean;
+  updated?: number;
+}> {
+  if (!process.env.FOOTBALL_DATA_API_KEY) return { success: false };
   try {
-    await syncCore();
+    const result = await syncCore();
+    return { success: result.success, updated: result.updated };
   } catch {
-    // Silent fail — don't block page load
+    return { success: false };
   }
 }
 
