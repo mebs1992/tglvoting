@@ -5,6 +5,50 @@ import { requireCommissioner } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
 import { calculateOutcome, MAJORITY_THRESHOLD } from "@/lib/voting";
 
+interface ChoiceRow {
+  id: string;
+  label: string;
+}
+
+function buildYesNoMap(
+  choices: ChoiceRow[]
+): Map<string, "yes" | "no"> | null {
+  if (choices.length !== 2) return null;
+  const sorted = [...choices].sort((a, b) =>
+    a.label.trim().toLowerCase().localeCompare(b.label.trim().toLowerCase())
+  );
+  if (
+    sorted[0].label.trim().toLowerCase() === "no" &&
+    sorted[1].label.trim().toLowerCase() === "yes"
+  ) {
+    const map = new Map<string, "yes" | "no">();
+    map.set(sorted[1].id, "yes");
+    map.set(sorted[0].id, "no");
+    return map;
+  }
+  return null;
+}
+
+function countYesNo(
+  votes: { vote_value: string }[],
+  ynMap: Map<string, "yes" | "no"> | null
+): { yesCount: number; noCount: number } {
+  let yesCount = 0;
+  let noCount = 0;
+  for (const v of votes) {
+    const mapped = ynMap ? ynMap.get(v.vote_value) : v.vote_value;
+    if (mapped === "yes") yesCount++;
+    else if (mapped === "no") noCount++;
+  }
+  return { yesCount, noCount };
+}
+
+function isYesNoChoices(choices: string[]): boolean {
+  if (choices.length !== 2) return false;
+  const sorted = choices.map((c) => c.trim().toLowerCase()).sort();
+  return sorted[0] === "no" && sorted[1] === "yes";
+}
+
 export async function createProposal(
   title: string,
   description: string,
@@ -14,6 +58,8 @@ export async function createProposal(
   const member = await requireCommissioner();
   const sb = getServiceClient();
 
+  const effectiveChoices = isYesNoChoices(choices) ? [] : choices;
+
   const { data, error } = await sb
     .from("proposals")
     .insert({
@@ -22,15 +68,15 @@ export async function createProposal(
       status: "draft",
       outcome: "pending",
       created_by: member.id,
-      allow_multiple_selections: choices.length > 0 && allowMultipleSelections,
+      allow_multiple_selections: effectiveChoices.length > 0 && allowMultipleSelections,
     })
     .select("id")
     .single();
 
   if (error) return { success: false, error: "Failed to create proposal" };
 
-  if (choices.length > 0) {
-    const choiceRows = choices.map((label, i) => ({
+  if (effectiveChoices.length > 0) {
+    const choiceRows = effectiveChoices.map((label, i) => ({
       proposal_id: data.id,
       label: label.trim(),
       display_order: i,
@@ -67,12 +113,14 @@ export async function editProposal(
     return { success: false, error: "Cannot edit a closed proposal" };
   }
 
+  const effectiveChoices = isYesNoChoices(choices) ? [] : choices;
+
   const { error } = await sb
     .from("proposals")
     .update({
       title,
       description,
-      allow_multiple_selections: choices.length > 0 && allowMultipleSelections,
+      allow_multiple_selections: effectiveChoices.length > 0 && allowMultipleSelections,
       updated_at: new Date().toISOString(),
     })
     .eq("id", proposalId);
@@ -80,8 +128,8 @@ export async function editProposal(
   if (error) return { success: false, error: "Failed to edit proposal" };
 
   await sb.from("proposal_choices").delete().eq("proposal_id", proposalId);
-  if (choices.length > 0) {
-    const choiceRows = choices.map((label, i) => ({
+  if (effectiveChoices.length > 0) {
+    const choiceRows = effectiveChoices.map((label, i) => ({
       proposal_id: proposalId,
       label: label.trim(),
       display_order: i,
@@ -177,13 +225,13 @@ export async function closeProposal(
     return { success: false, error: "Only open proposals can be closed" };
   }
 
-  const { data: votes } = await sb
-    .from("votes")
-    .select("vote_value")
-    .eq("proposal_id", proposalId);
+  const [{ data: votes }, { data: choices }] = await Promise.all([
+    sb.from("votes").select("vote_value").eq("proposal_id", proposalId),
+    sb.from("proposal_choices").select("id, label").eq("proposal_id", proposalId),
+  ]);
 
-  const yesCount = (votes ?? []).filter((v) => v.vote_value === "yes").length;
-  const noCount = (votes ?? []).filter((v) => v.vote_value === "no").length;
+  const ynMap = buildYesNoMap(choices ?? []);
+  const { yesCount, noCount } = countYesNo(votes ?? [], ynMap);
   const outcome = calculateOutcome(yesCount, noCount);
 
   const { error } = await sb
