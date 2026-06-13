@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   assignNation,
@@ -10,6 +10,7 @@ import {
   updateNationStats,
   overrideDraftPosition,
   syncFromApi,
+  autoSync,
 } from "@/app/actions/draft-tracker-actions";
 import type { DraftEntryWithMember } from "@/app/actions/draft-tracker-actions";
 import { STAGE_LABELS, TOTAL_PICKS } from "@/lib/draft-calculator";
@@ -40,6 +41,19 @@ export default function DraftTrackerContent({
   const router = useRouter();
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState("");
+  const [autoSyncing, setAutoSyncing] = useState(true);
+  const didAutoSync = useRef(false);
+
+  useEffect(() => {
+    if (didAutoSync.current) return;
+    didAutoSync.current = true;
+    autoSync().then((result) => {
+      setAutoSyncing(false);
+      if (result.success && result.updated && result.updated > 0) {
+        router.refresh();
+      }
+    });
+  }, [router]);
 
   async function handleSync() {
     setSyncing(true);
@@ -69,6 +83,13 @@ export default function DraftTrackerContent({
 
   return (
     <div className="draft-tracker-page">
+      {autoSyncing && (
+        <div className="sync-banner">
+          <div className="sync-spinner" />
+          Syncing latest results&hellip;
+        </div>
+      )}
+
       {isCommissioner && (
         <div className="flex items-center justify-between mb-16">
           <button
