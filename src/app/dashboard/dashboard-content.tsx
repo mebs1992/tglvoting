@@ -227,19 +227,31 @@ export default function DashboardContent({
                         <div className="live-votes-header">
                           Votes Cast ({votedCount}/{p.totalMembers})
                         </div>
-                        <div className="live-votes-list">
-                          {p.liveVotes.map((v, i) => (
-                            <div key={i} className="live-vote-row">
-                              <span className="live-vote-name">{v.memberName}</span>
-                              <span className={`live-vote-value ${
-                                v.voteLabel === "Yes" ? "live-vote-yes" :
-                                v.voteLabel === "No" ? "live-vote-no" : ""
-                              }`}>
-                                {v.voteLabel}
-                              </span>
+                        {(() => {
+                          const groups = new Map<string, string[]>();
+                          for (const v of p.liveVotes) {
+                            const arr = groups.get(v.voteLabel) ?? [];
+                            arr.push(v.memberName);
+                            groups.set(v.voteLabel, arr);
+                          }
+                          return (
+                            <div className="live-votes-groups">
+                              {Array.from(groups.entries()).map(([label, names]) => (
+                                <div key={label} className="live-votes-group">
+                                  <div className={`live-votes-group-label ${
+                                    label === "Yes" ? "live-vote-yes" :
+                                    label === "No" ? "live-vote-no" : ""
+                                  }`}>
+                                    {label} ({names.length})
+                                  </div>
+                                  <div className="live-votes-group-names">
+                                    {names.join(", ")}
+                                  </div>
+                                </div>
+                              ))}
                             </div>
-                          ))}
-                        </div>
+                          );
+                        })()}
                       </div>
                     )}
                   </div>
