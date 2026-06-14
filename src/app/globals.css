@@ -541,6 +541,24 @@ textarea.input {
   color: var(--color-gold);
 }
 
+@media (max-width: 600px) {
+  .ballot-header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .ballot-title {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+    flex-basis: calc(100% - 54px);
+  }
+  .ballot-chevron {
+    position: absolute;
+    top: 18px;
+    right: 18px;
+  }
+}
+
 .ballot-body {
   padding: 22px;
   border-top: 2px solid var(--color-gold);
