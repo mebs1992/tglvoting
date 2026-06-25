@@ -181,39 +181,71 @@ export async function getNationStats(
     }
   }
 
-  // Nations eliminated in group stage: if group stage is over but nation has
-  // no knockout match, they were eliminated in group stage.
-  const knockoutTeams = new Set<string>();
-  for (const match of matches) {
-    if (match.stage !== "GROUP_STAGE") {
-      knockoutTeams.add(normalizeTeamName(match.homeTeam.name));
-      knockoutTeams.add(normalizeTeamName(match.awayTeam.name));
-    }
+  // Nations eliminated in group stage: a nation that finished all its group
+  // matches but did NOT advance to the knockout rounds was eliminated in the
+  // group stage. We can only make this inference once the first knockout round
+  // has actually been DRAWN with real teams. Right after the group stage ends,
+  // knockout fixtures exist but with placeholder/TBD (null) team names, so a
+  // team that genuinely advanced (e.g. Brazil) would not yet appear in any
+  // knockout match. Inferring elimination before the draw is complete would
+  // wrongly eliminate advancing teams, so we wait.
+  const knockoutMatches = matches.filter((m) => m.stage !== "GROUP_STAGE");
+
+  // Rank knockout rounds so we can identify the first one (the round teams
+  // advance into directly from the group stage).
+  const KNOCKOUT_STAGE_RANK: Record<string, number> = {
+    ROUND_OF_32: 1,
+    LAST_32: 1,
+    ROUND_OF_16: 2,
+    LAST_16: 2,
+    QUARTER_FINALS: 3,
+    QUARTER_FINAL: 3,
+    SEMI_FINALS: 4,
+    SEMI_FINAL: 4,
+    THIRD_PLACE: 5,
+    FINAL: 6,
+  };
+
+  let firstKnockoutRank = Infinity;
+  for (const match of knockoutMatches) {
+    const rank = KNOCKOUT_STAGE_RANK[match.stage] ?? Infinity;
+    if (rank < firstKnockoutRank) firstKnockoutRank = rank;
   }
 
-  const groupFinished = finished.filter((m) => m.stage === "GROUP_STAGE");
-  if (groupFinished.length > 0) {
+  const firstRoundMatches = knockoutMatches.filter(
+    (m) => (KNOCKOUT_STAGE_RANK[m.stage] ?? Infinity) === firstKnockoutRank
+  );
+  const firstRoundDrawn =
+    firstRoundMatches.length > 0 &&
+    firstRoundMatches.every((m) => m.homeTeam.name && m.awayTeam.name);
+
+  if (firstRoundDrawn) {
+    // Teams that appear (with a real name) in any knockout fixture advanced.
+    const knockoutTeams = new Set<string>();
+    for (const match of knockoutMatches) {
+      if (match.homeTeam.name)
+        knockoutTeams.add(normalizeTeamName(match.homeTeam.name));
+      if (match.awayTeam.name)
+        knockoutTeams.add(normalizeTeamName(match.awayTeam.name));
+    }
+
     for (const [normName, s] of stats) {
-      const hasGroupMatches = groupFinished.some(
+      if (s.isEliminated) continue;
+      if (knockoutTeams.has(normName)) continue;
+
+      const groupMatches = matches.filter(
         (m) =>
-          normalizeTeamName(m.homeTeam.name) === normName ||
-          normalizeTeamName(m.awayTeam.name) === normName
+          m.stage === "GROUP_STAGE" &&
+          (normalizeTeamName(m.homeTeam.name) === normName ||
+            normalizeTeamName(m.awayTeam.name) === normName)
       );
-      if (hasGroupMatches && !knockoutTeams.has(normName) && !s.isEliminated) {
-        // Check if all group matches for this nation are finished
-        const allGroupMatches = matches.filter(
-          (m) =>
-            m.stage === "GROUP_STAGE" &&
-            (normalizeTeamName(m.homeTeam.name) === normName ||
-              normalizeTeamName(m.awayTeam.name) === normName)
-        );
-        const allFinished = allGroupMatches.every((m) =>
-          finishedStatuses.has(m.status)
-        );
-        if (allFinished && knockoutTeams.size > 0) {
-          s.isEliminated = true;
-          s.eliminationStage = "group_stage";
-        }
+      const allFinished =
+        groupMatches.length > 0 &&
+        groupMatches.every((m) => finishedStatuses.has(m.status));
+
+      if (allFinished) {
+        s.isEliminated = true;
+        s.eliminationStage = "group_stage";
       }
     }
   }
