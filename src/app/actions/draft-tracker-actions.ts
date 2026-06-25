@@ -315,6 +315,14 @@ async function syncCore(): Promise<{
       updateData.status = "eliminated";
       updateData.elimination_stage = stats.eliminationStage;
       updateData.eliminated_at = new Date().toISOString();
+    } else {
+      // The API is authoritative on elimination: if it reports a nation as
+      // still in the competition, reactivate it. This self-heals nations that
+      // were previously (and incorrectly) marked eliminated — e.g. a team that
+      // advanced past the group stage before the knockout draw was published.
+      updateData.status = "active";
+      updateData.elimination_stage = null;
+      updateData.eliminated_at = null;
     }
 
     await sb
