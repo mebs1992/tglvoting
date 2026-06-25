@@ -49,6 +49,10 @@ export function calculateDraftPositions(
     const stageB = STAGE_ORDER[b.elimination_stage!] ?? 0;
     if (stageA !== stageB) return stageA - stageB;
 
+    // Within the same elimination stage, break ties on GROUP-STAGE performance
+    // only — never on when a team happened to be eliminated. A team knocked out
+    // earlier in the calendar must NOT automatically fall to the lowest pick;
+    // the better group-stage record gets the better (lower-numbered) pick.
     const pointsA = a.group_wins * 3 + a.group_draws;
     const pointsB = b.group_wins * 3 + b.group_draws;
     if (pointsA !== pointsB) return pointsA - pointsB;
@@ -56,9 +60,10 @@ export function calculateDraftPositions(
     if (a.goal_differential !== b.goal_differential)
       return a.goal_differential - b.goal_differential;
 
-    const timeA = a.eliminated_at ? new Date(a.eliminated_at).getTime() : 0;
-    const timeB = b.eliminated_at ? new Date(b.eliminated_at).getTime() : 0;
-    return timeA - timeB;
+    // Fully tied on every group-stage metric we track. Fall back to a stable,
+    // time-independent ordering so the draft order can't shift between syncs.
+    // A commissioner can use the position override to settle a genuine tie.
+    return a.nation_name.localeCompare(b.nation_name);
   });
 
   const positions = new Map<string, number>();
